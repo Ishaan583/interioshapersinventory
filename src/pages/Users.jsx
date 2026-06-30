@@ -45,6 +45,20 @@ const Users = () => {
     }
   };
 
+  const handleRoleChange = async (userId, newRole) => {
+    if (userId === user.id) {
+      alert("You cannot change your own admin role directly to avoid locking yourself out of the admin panel.");
+      return;
+    }
+    try {
+      await API.updateUserRole(userId, newRole);
+      setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: newRole, assignedSite: newRole === 'admin' ? '' : u.assignedSite } : u));
+      alert('User role updated successfully.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update user role');
+    }
+  };
+
   if (!isAdmin) {
     return <div className="badge badge-error" style={{ padding: '15px', borderRadius: 'var(--radius-md)', textTransform: 'none' }}>⚠️ Access Denied. Admin privilege required.</div>;
   }
@@ -78,9 +92,21 @@ const Users = () => {
                   </td>
                   <td>{u.email}</td>
                   <td>
-                    <span className={`badge ${u.role === 'admin' ? 'badge-success' : 'badge-pending'}`}>
-                      {u.role}
-                    </span>
+                    {u._id === user.id ? (
+                      <span className="badge badge-success">
+                        {u.role}
+                      </span>
+                    ) : (
+                      <select
+                        className="form-input"
+                        style={{ margin: 0, padding: '6px 12px', minWidth: '120px' }}
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                      >
+                        <option value="worker">worker</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    )}
                   </td>
                   <td>
                     {u.role === 'admin' ? (

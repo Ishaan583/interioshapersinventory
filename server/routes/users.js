@@ -62,4 +62,37 @@ router.patch('/:id/site', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// @route   PATCH /api/users/:id/role
+// @desc    Change user role (Admin Only)
+// @access  Private (Admin Only)
+router.patch('/:id/role', verifyToken, isAdmin, async (req, res) => {
+  const { role } = req.body;
+
+  if (!['admin', 'worker'].includes(role)) {
+    return res.status(400).json({ message: 'Invalid role.' });
+  }
+
+  try {
+    const updatedUser = await DB.Users.findByIdAndUpdate(req.params.id, {
+      role,
+      assignedSite: role === 'admin' ? '' : undefined // Admins don't have assigned sites
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Log Activity
+    await DB.History.create({
+      userName: req.user.name,
+      action: `Changed role of user "${updatedUser.name}" to "${role}"`
+    });
+
+    res.json({ message: `User role successfully updated to ${role}.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error updating user role.' });
+  }
+});
+
 module.exports = router;
