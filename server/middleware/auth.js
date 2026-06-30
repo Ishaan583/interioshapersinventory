@@ -4,7 +4,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'interioshapers-secret-key-12345';
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+
+  // Fallback to query parameter (needed for file downloads with window.open)
+  if (!token && req.query.token) {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res.status(401).json({ message: 'No authentication token provided. Access denied.' });

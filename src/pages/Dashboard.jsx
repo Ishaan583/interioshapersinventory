@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   const [stats, setStats] = useState(null);
@@ -47,13 +47,13 @@ const Dashboard = () => {
 
   const handleExportAll = () => {
     const apiBase = import.meta.env.VITE_API_URL || '';
-    window.open(`${apiBase}/api/reports/export`, '_blank');
+    window.open(`${apiBase}/api/reports/export?token=${token}`, '_blank');
   };
 
   const handleExportSite = () => {
     if (!selectedSite) return;
     const apiBase = import.meta.env.VITE_API_URL || '';
-    window.open(`${apiBase}/api/reports/export?site=${encodeURIComponent(selectedSite)}`, '_blank');
+    window.open(`${apiBase}/api/reports/export?site=${encodeURIComponent(selectedSite)}&token=${token}`, '_blank');
   };
 
   if (loading && !stats) {
