@@ -22,6 +22,10 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
 
   const handleDecrement = async () => {
     if (updating || material.quantity <= 0) return;
+    if (!isAdmin) {
+      alert("Security Block: Workers are not allowed to decrease stock directly. To return leftover material, please use the Returns tab under Requests.");
+      return;
+    }
     setUpdating(true);
     await onQtyChange(material._id, -1);
     setUpdating(false);
@@ -39,6 +43,12 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
       return;
     }
     if (parsed === material.quantity) return;
+
+    if (!isAdmin && parsed < material.quantity) {
+      alert(`Security Block: Workers are not allowed to decrease stock directly. You cannot reduce stock from ${material.quantity} to ${parsed}.`);
+      setInputValue(material.quantity);
+      return;
+    }
 
     setUpdating(true);
     await onQtyChange(material._id, undefined, parsed);
@@ -81,8 +91,8 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
           <button 
             className="qty-btn" 
             onClick={handleDecrement} 
-            disabled={updating || material.quantity <= 0}
-            title="Decrease Quantity"
+            disabled={updating || material.quantity <= 0 || !isAdmin}
+            title={!isAdmin ? "Only Admin can decrease stock directly" : "Decrease Quantity"}
             type="button"
           >
             −

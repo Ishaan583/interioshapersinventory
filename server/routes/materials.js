@@ -180,6 +180,16 @@ router.patch('/:id/quantity', verifyToken, async (req, res) => {
       return res.status(403).json({ message: `Forbidden. You are only allowed to modify materials at your assigned site: ${req.user.assignedSite}` });
     }
 
+    // SCAM PROTECTION: Workers cannot decrease stock directly!
+    if (req.user.role === 'worker') {
+      if (change !== undefined && change < 0) {
+        return res.status(403).json({ message: 'Security Block: Workers are not allowed to decrease stock directly. To return leftover material, please use the Returns tab under Requests.' });
+      }
+      if (newValue !== undefined && newValue < material.quantity) {
+        return res.status(403).json({ message: `Security Block: Workers are not allowed to decrease stock. You cannot reduce stock from ${material.quantity} to ${newValue}.` });
+      }
+    }
+
     let newQty;
     let logAction = '';
 
