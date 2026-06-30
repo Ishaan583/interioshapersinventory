@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const Sidebar = ({ collapsed }) => {
+const Sidebar = ({ collapsed, isMobile }) => {
   const { user, logout } = useAuth();
   
   if (!user) return null;
@@ -27,7 +27,7 @@ const Sidebar = ({ collapsed }) => {
   }
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${isMobile ? 'mobile-sidebar' : ''}`}>
       <div className="sidebar-brand">
         <div className="sidebar-logo-icon">IS</div>
         {!collapsed && <span className="sidebar-logo">Interio Shapers</span>}

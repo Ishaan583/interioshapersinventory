@@ -338,6 +338,7 @@ button, input, select, textarea {
   .main-content.collapsed { margin-left: 0; }
   .page-container { padding: 15px; }
   .sidebar-toggle-btn { display: flex !important; }
+  .desktop-sidebar { display: none !important; }
 }
 
 /* Scrollable Material Container */
@@ -364,6 +365,13 @@ button, input, select, textarea {
 
 .sidebar.collapsed {
   width: var(--sidebar-collapsed-width);
+}
+
+.sidebar.mobile-sidebar {
+  position: relative !important;
+  height: 100% !important;
+  left: auto !important;
+  border-right: none;
 }
 
 .sidebar-brand {
