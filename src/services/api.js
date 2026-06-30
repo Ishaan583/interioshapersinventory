@@ -95,6 +95,11 @@ const API = {
     return res.data;
   },
 
+  updateUserRole: async (userId, role) => {
+    const res = await axios.patch(`/api/users/${userId}/role`, { role });
+    return res.data;
+  },
+
   // Dashboard Stats
   getStats: async (site) => {
     const res = await axios.get('/api/stats', { params: { site } });
