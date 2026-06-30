@@ -23,7 +23,7 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
   const handleDecrement = async () => {
     if (updating || material.quantity <= 0) return;
     if (!isAdmin) {
-      alert("Security Block: Workers are not allowed to decrease stock directly. To return leftover material, please use the Returns tab under Requests.");
+      alert("Only admin can change that");
       return;
     }
     setUpdating(true);
@@ -45,7 +45,7 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
     if (parsed === material.quantity) return;
 
     if (!isAdmin && parsed < material.quantity) {
-      alert(`Security Block: Workers are not allowed to decrease stock directly. You cannot reduce stock from ${material.quantity} to ${parsed}.`);
+      alert("Only admin can change that");
       setInputValue(material.quantity);
       return;
     }
