@@ -51,7 +51,9 @@ const DashboardLayout = () => {
   return (
     <div className="app-container">
       {/* Sidebar for Desktop */}
-      <Sidebar collapsed={sidebarCollapsed} />
+      <div className="desktop-sidebar">
+        <Sidebar collapsed={sidebarCollapsed} />
+      </div>
 
       {/* Mobile Drawer Sidebar Overlay */}
       {mobileSidebarOpen && (
@@ -77,7 +79,7 @@ const DashboardLayout = () => {
         zIndex: 50,
         transition: 'left var(--transition-normal)'
       }}>
-        <Sidebar collapsed={false} />
+        <Sidebar collapsed={false} isMobile={true} />
       </div>
 
       <div className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>
