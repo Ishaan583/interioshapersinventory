@@ -54,8 +54,8 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
     res.status(201).json({ message: 'Site registered and pre-seeded successfully.', site });
   } catch (err) {
     console.error(err);
-    if (err.message === 'Site already exists') {
-      return res.status(400).json({ message: err.message });
+    if (err.message === 'Site already exists' || err.code === 11000) {
+      return res.status(400).json({ message: 'Site already exists' });
     }
     res.status(500).json({ message: 'Server error registering site.' });
   }
