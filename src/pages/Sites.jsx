@@ -60,7 +60,7 @@ const Sites = () => {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'start' }}>
+    <div className="request-grid">
       {/* Add New Site Panel */}
       <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
         <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>
