@@ -161,7 +161,7 @@ const RequestItem = () => {
                   <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Worker</th>
+                    <th>Supervisor</th>
                     <th>Site</th>
                     <th>Category</th>
                     <th>Material Name</th>
@@ -234,7 +234,7 @@ const RequestItem = () => {
         </div>
       ) : (
         // Worker View - Submit Request/Return & View Personal History
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'start' }}>
+        <div className="request-grid">
           {/* Submit Form */}
           <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
             {/* Tab selection */}
@@ -293,7 +293,7 @@ const RequestItem = () => {
                     <option value="Carpentry">Carpentry</option>
                     <option value="False Ceiling">False Ceiling</option>
                     <option value="Painting">Painting</option>
-                    <option value="Aluminium Work">Aluminium Work</option>
+                    <option value="Civil Work">Civil Work</option>
                     <option value="Electrical">Electrical</option>
                     <option value="Modular">Modular</option>
                   </select>

@@ -81,10 +81,64 @@ const seedDatabase = async () => {
   }
 };
 
+// Database Migration function to run on startup
+const runMigrations = async () => {
+  try {
+    console.log('🔄 Running database migrations...');
+
+    // 1. Update any existing materials under 'Aluminium Work' to 'Carpentry'
+    const aluminiumUpdateResult = await DB.Materials.updateMany(
+      { category: 'Aluminium Work' },
+      { $set: { category: 'Carpentry' } }
+    );
+    if (aluminiumUpdateResult && aluminiumUpdateResult.modifiedCount > 0) {
+      console.log(`✅ Migrated ${aluminiumUpdateResult.modifiedCount} Aluminium materials to Carpentry.`);
+    }
+
+    // 2. Ensure all existing sites have all predefined materials from predefined.js
+    const { PREDEFINED_ITEMS } = require('./utils/predefined');
+    const existingSites = await DB.Sites.find();
+    
+    let addedCount = 0;
+    for (let site of existingSites) {
+      for (let category in PREDEFINED_ITEMS) {
+        const itemNames = PREDEFINED_ITEMS[category];
+        for (let name of itemNames) {
+          const existingMaterial = await DB.Materials.findOne({
+            name,
+            category,
+            site: site.name
+          });
+
+          if (!existingMaterial) {
+            await DB.Materials.create({
+              name,
+              category,
+              quantity: 0,
+              site: site.name
+            });
+            addedCount++;
+          }
+        }
+      }
+    }
+
+    if (addedCount > 0) {
+      console.log(`✅ Pre-seeded ${addedCount} missing materials for existing project sites.`);
+    } else {
+      console.log('✅ All materials are fully up to date.');
+    }
+
+  } catch (err) {
+    console.error('❌ Migration failed:', err);
+  }
+};
+
 // Start Server & Connect DB
 const startServer = async () => {
   await connectDB();
   await seedDatabase();
+  await runMigrations();
   
   app.listen(PORT, () => {
     console.log(`🚀 Express server running on port ${PORT}`);

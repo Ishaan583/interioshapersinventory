@@ -25,7 +25,17 @@ const PREDEFINED_ITEMS = {
     '32/6 screw',
     '50/6 screw',
     '25/6 screw',
-    'gulli/gujji'
+    'gulli/gujji',
+    'Aluminium Section 2 1/2\'x 1 1/2\'',
+    'door vertical 10ft',
+    'Door Bottom',
+    'Clip',
+    'Angle',
+    'Rubber',
+    'Clear silicon',
+    'patam section 7ft',
+    'patam section 4ft',
+    'tie rod'
   ],
   'False Ceiling': [
     'Gypsum Board (Saint Gobian/Boral)',
@@ -51,18 +61,6 @@ const PREDEFINED_ITEMS = {
     'Brown Paint 100 ml',
     'Tarpin',
     'Thinner'
-  ],
-  'Aluminium Work': [
-    'Aluminium Section 2 1/2\'x 1 1/2\'',
-    'door vertical 10ft',
-    'Door Bottom',
-    'Clip',
-    'Angle',
-    'Rubber',
-    'Clear silicon',
-    'patam section 7ft',
-    'patam section 4ft',
-    'tie rod'
   ],
   'Modular': [
     'Manager Table',
@@ -151,6 +149,17 @@ const PREDEFINED_ITEMS = {
     'Exhaust Fan 12" (PVC 300 mm ) Bajaj',
     '10 Sq mm 4 core armet cable',
     '10 mm cooper taar (earthing )'
+  ],
+  'Civil Work': [
+    'bricks',
+    'sand',
+    'cement',
+    'aggregate',
+    'steel rod',
+    'Steel 8mm',
+    'Steel 10mm',
+    'Steel 12mm',
+    'Steel 16mm'
   ]
 };
 
@@ -195,6 +204,7 @@ const CategoryPage = ({ category }) => {
   };
 
   const fetchMaterials = async () => {
+    if (isAdmin && !selectedSite) return;
     setLoading(true);
     try {
       const params = { category };
@@ -208,7 +218,7 @@ const CategoryPage = ({ category }) => {
       setMaterials(data);
       setError('');
     } catch (err) {
-      setError('Failed to fetch inventory.');
+      setError(err.response?.data?.message || 'Failed to fetch inventory.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -300,6 +310,14 @@ const CategoryPage = ({ category }) => {
   const filteredMaterials = materials.filter(m => 
     m.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (!isAdmin && !user?.assignedSite) {
+    return (
+      <div className="badge badge-error" style={{ width: '100%', padding: '15px', borderRadius: 'var(--radius-md)', textTransform: 'none', fontSize: '14px' }}>
+        ⚠️ You are not assigned to any project site. Please ask the Admin to assign you a site.
+      </div>
+    );
+  }
 
   return (
     <div>

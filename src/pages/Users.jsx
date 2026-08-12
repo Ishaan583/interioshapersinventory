@@ -66,7 +66,7 @@ const Users = () => {
   return (
     <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
       <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>
-        👥 Manage Worker Site Assignments
+        👥 Manage Supervisor Site Assignments
       </h3>
 
       {loading ? (
@@ -94,7 +94,7 @@ const Users = () => {
                   <td>
                     {u._id === user.id ? (
                       <span className="badge badge-success">
-                        {u.role}
+                        {u.role === 'admin' ? 'Admin' : 'Supervisor'}
                       </span>
                     ) : (
                       <select
@@ -103,8 +103,8 @@ const Users = () => {
                         value={u.role}
                         onChange={(e) => handleRoleChange(u._id, e.target.value)}
                       >
-                        <option value="worker">worker</option>
-                        <option value="admin">admin</option>
+                        <option value="worker">Supervisor</option>
+                        <option value="admin">Admin</option>
                       </select>
                     )}
                   </td>
@@ -131,7 +131,7 @@ const Users = () => {
           </table>
         </div>
       ) : (
-        <p style={{ color: 'var(--text-secondary)' }}>No workers registered in system.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>No supervisors registered in system.</p>
       )}
     </div>
   );
