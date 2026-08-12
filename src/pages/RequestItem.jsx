@@ -155,77 +155,156 @@ const RequestItem = () => {
           ) : error ? (
             <div className="badge badge-error" style={{ padding: '10px 15px', borderRadius: 'var(--radius-md)', textTransform: 'none' }}>{error}</div>
           ) : requests.length > 0 ? (
-            <div className="custom-table-container">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Supervisor</th>
-                    <th>Site</th>
-                    <th>Category</th>
-                    <th>Material Name</th>
-                    <th>Quantity</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.map((req) => (
-                    <tr key={req._id}>
-                      <td>{new Date(req.date || req.createdAt).toLocaleDateString()}</td>
-                      <td>
+            <>
+              {/* Desktop View - Table */}
+              <div className="desktop-view custom-table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Supervisor</th>
+                      <th>Site</th>
+                      <th>Category</th>
+                      <th>Material Name</th>
+                      <th>Quantity</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.map((req) => (
+                      <tr key={req._id}>
+                        <td>{new Date(req.date || req.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          {req.type === 'return' ? (
+                            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                              Return
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                              Request
+                            </span>
+                          )}
+                        </td>
+                        <td><strong>{req.workerName}</strong></td>
+                        <td><span className="badge badge-success">{req.site}</span></td>
+                        <td>{req.category}</td>
+                        <td>{req.name}</td>
+                        <td><strong>{req.quantity}</strong></td>
+                        <td>{req.reason || 'N/A'}</td>
+                        <td>
+                          <span className={`badge badge-${req.status}`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td>
+                          {req.type === 'return' ? (
+                            <span style={{ color: 'var(--status-success)', fontWeight: '600' }}>Returned ✅</span>
+                          ) : req.status === 'pending' ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                className="btn btn-primary" 
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                                onClick={() => handleAction(req._id, 'approved')}
+                              >
+                                Approve
+                              </button>
+                              <button 
+                                className="btn btn-danger" 
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                                onClick={() => handleAction(req._id, 'rejected')}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Resolved</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View - Card List */}
+              <div className="mobile-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {requests.map((req) => (
+                  <div key={req._id} className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--card-border)', transform: 'none', boxShadow: 'var(--shadow-md)' }}>
+                    {/* Header (Type & Site) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
                         {req.type === 'return' ? (
-                          <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                          <span className="badge" style={{ margin: 0, background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
                             Return
                           </span>
                         ) : (
-                          <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                          <span className="badge" style={{ margin: 0, background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                             Request
                           </span>
                         )}
-                      </td>
-                      <td><strong>{req.workerName}</strong></td>
-                      <td><span className="badge badge-success">{req.site}</span></td>
-                      <td>{req.category}</td>
-                      <td>{req.name}</td>
-                      <td><strong>{req.quantity}</strong></td>
-                      <td>{req.reason || 'N/A'}</td>
-                      <td>
-                        <span className={`badge badge-${req.status}`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td>
-                        {req.type === 'return' ? (
-                          <span style={{ color: 'var(--status-success)', fontWeight: '600' }}>Returned ✅</span>
-                        ) : req.status === 'pending' ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
-                              onClick={() => handleAction(req._id, 'approved')}
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              className="btn btn-danger" 
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
-                              onClick={() => handleAction(req._id, 'rejected')}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Resolved</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <span className="badge badge-success" style={{ marginLeft: '8px', margin: 0 }}>{req.site}</span>
+                      </div>
+                      <span className={`badge badge-${req.status}`} style={{ margin: 0 }}>
+                        {req.status}
+                      </span>
+                    </div>
+
+                    {/* Body (Material details) */}
+                    <div style={{ padding: '12px 0', borderTop: '1px solid var(--card-border)', borderBottom: '1px solid var(--card-border)' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '6px' }}>
+                        {req.name}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '13px' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-secondary)' }}>Quantity:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.quantity}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-secondary)' }}>Category:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.category}</strong>
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Supervisor:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.workerName}</strong>
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Reason:</span> <span style={{ color: 'var(--text-primary)', fontStyle: 'italic' }}>"{req.reason || 'N/A'}"</span>
+                        </div>
+                        <div style={{ gridColumn: 'span 2', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          Date: {new Date(req.date || req.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer (Actions) */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', alignItems: 'center' }}>
+                      {req.type === 'return' ? (
+                        <span style={{ color: 'var(--status-success)', fontWeight: '600', fontSize: '14px' }}>Returned ✅</span>
+                      ) : req.status === 'pending' ? (
+                        <>
+                          <button 
+                            className="btn btn-danger" 
+                            style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onClick={() => handleAction(req._id, 'rejected')}
+                          >
+                            ❌ Reject
+                          </button>
+                          <button 
+                            className="btn btn-primary" 
+                            style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onClick={() => handleAction(req._id, 'approved')}
+                          >
+                            ✔️ Approve
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Resolved</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '30px 0' }}>
               No transactions pending approval.
