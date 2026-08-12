@@ -19,7 +19,17 @@ const PREDEFINED_ITEMS = {
     '32/6 screw',
     '50/6 screw',
     '25/6 screw',
-    'gulli/gujji'
+    'gulli/gujji',
+    'Aluminium Section 2 1/2\'x 1 1/2\'',
+    'door vertical 10ft',
+    'Door Bottom',
+    'Clip',
+    'Angle',
+    'Rubber',
+    'Clear silicon',
+    'patam section 7ft',
+    'patam section 4ft',
+    'tie rod'
   ],
   'False Ceiling': [
     'Gypsum Board (Saint Gobian/Boral)',
@@ -45,18 +55,6 @@ const PREDEFINED_ITEMS = {
     'Brown Paint 100 ml',
     'Tarpin',
     'Thinner'
-  ],
-  'Aluminium Work': [
-    'Aluminium Section 2 1/2\'x 1 1/2\'',
-    'door vertical 10ft',
-    'Door Bottom',
-    'Clip',
-    'Angle',
-    'Rubber',
-    'Clear silicon',
-    'patam section 7ft',
-    'patam section 4ft',
-    'tie rod'
   ],
   'Modular': [
     'Manager Table',
@@ -145,6 +143,17 @@ const PREDEFINED_ITEMS = {
     'Exhaust Fan 12" (PVC 300 mm ) Bajaj',
     '10 Sq mm 4 core armet cable',
     '10 mm cooper taar (earthing )'
+  ],
+  'Civil Work': [
+    'bricks',
+    'sand',
+    'cement',
+    'aggregate',
+    'steel rod',
+    'Steel 8mm',
+    'Steel 10mm',
+    'Steel 12mm',
+    'Steel 16mm'
   ]
 };
 

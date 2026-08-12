@@ -12,6 +12,25 @@ const Dashboard = () => {
   const [selectedSite, setSelectedSite] = useState(isAdmin ? '' : user?.assignedSite || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryMaterials, setSummaryMaterials] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summarySearch, setSummarySearch] = useState('');
+
+  const openSummaryModal = async () => {
+    setShowSummaryModal(true);
+    if (!user?.assignedSite) return;
+    setSummaryLoading(true);
+    try {
+      const data = await API.getMaterials({ site: user.assignedSite });
+      const filled = data.filter(m => m.quantity > 0);
+      setSummaryMaterials(filled);
+    } catch (err) {
+      console.error('Failed to fetch stock summary:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchSites();
@@ -32,6 +51,7 @@ const Dashboard = () => {
   };
 
   const fetchDashboardStats = async () => {
+    if (isAdmin && !selectedSite) return;
     setLoading(true);
     try {
       const data = await API.getStats(selectedSite);
@@ -59,6 +79,11 @@ const Dashboard = () => {
   if (loading && !stats) {
     return <div className="flex-center" style={{ minHeight: '300px' }}>Loading metrics...</div>;
   }
+
+  const filteredSummary = summaryMaterials.filter(m => 
+    m.name.toLowerCase().includes(summarySearch.toLowerCase()) ||
+    m.category.toLowerCase().includes(summarySearch.toLowerCase())
+  );
 
   return (
     <div>
@@ -97,6 +122,15 @@ const Dashboard = () => {
               📥 Export Excel
             </button>
           </div>
+        )}
+        {!isAdmin && user?.assignedSite && (
+          <button 
+            className="btn btn-primary" 
+            onClick={openSummaryModal}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            📋 View Site Stock Summary
+          </button>
         )}
       </div>
 
@@ -159,90 +193,127 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Main Grid for recent logs and shortcuts */}
-      <div className="grid-cols-2">
-        {/* Recent Activity Card */}
-        <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🔔 Recent Activity History
-          </h3>
-          {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-            <div className="recent-activity-list">
-              {stats.recentActivity.map((activity, idx) => (
-                <div key={idx} className="recent-activity-item">
-                  <div>
-                    <span className="activity-user">{activity.userName}</span>{' '}
-                    <span style={{ color: 'var(--text-secondary)' }}>{activity.action}</span>
-                    {activity.site && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                        {' '}at site <strong style={{ color: 'var(--text-secondary)' }}>{activity.site}</strong>
-                      </span>
-                    )}
-                  </div>
-                  <div className="activity-time">
-                    {new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              ))}
+      {/* Shortcuts / Material Page Links */}
+      <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '30px' }}>
+        <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>
+          🚀 Quick Material Categories
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+          <Link to="/carpentry" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>🪵</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>Carpentry</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Plywood, Fevicol, Nails...</div>
             </div>
-          ) : (
-            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>
-              No recent activity recorded.
-            </p>
-          )}
-        </div>
-
-        {/* Shortcuts / Material Page Links */}
-        <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
-            🚀 Quick Material Categories
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-            <Link to="/carpentry" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>🪵</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>Carpentry</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Plywood, Fevicol...</div>
-              </div>
-            </Link>
-            <Link to="/false-ceiling" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>🏗️</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>False Ceiling</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Gypsum, Compound...</div>
-              </div>
-            </Link>
-            <Link to="/painting" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>🎨</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>Painting</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Putty, Primers...</div>
-              </div>
-            </Link>
-            <Link to="/aluminium" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>🪟</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>Aluminium Work</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sections, Glass...</div>
-              </div>
-            </Link>
-            <Link to="/electrical" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>⚡</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>Electrical</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Wires, Switchboards...</div>
-              </div>
-            </Link>
-            <Link to="/modular" className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>📦</span>
-              <div>
-                <div style={{ fontWeight: '600' }}>Modular</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tables, Hinges...</div>
-              </div>
-            </Link>
-          </div>
+          </Link>
+          <Link to="/false-ceiling" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>🏗️</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>False Ceiling</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Gypsum, Stud, Floor...</div>
+            </div>
+          </Link>
+          <Link to="/painting" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>🎨</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>Painting</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Putty, Primers, Paint...</div>
+            </div>
+          </Link>
+          <Link to="/civil-work" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>🧱</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>Civil Work</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Bricks, Sand, Cement, Steel...</div>
+            </div>
+          </Link>
+          <Link to="/electrical" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>⚡</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>Electrical</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Wires, Switchboards, MCBs...</div>
+            </div>
+          </Link>
+          <Link to="/modular" className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none', color: 'inherit' }}>
+            <span style={{ fontSize: '32px' }}>📦</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '2px' }}>Modular</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Tables, Locks, Handles...</div>
+            </div>
+          </Link>
         </div>
       </div>
+
+      {/* Stock Summary Modal Overlay */}
+      {showSummaryModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '700px', margin: 'auto', borderRadius: 'var(--radius-lg)', padding: '30px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex-between" style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: '700' }}>
+                📋 Stock Summary: {user?.assignedSite}
+              </h3>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => { setShowSummaryModal(false); setSummarySearch(''); }}
+                style={{ padding: '4px 10px', fontSize: '16px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <input
+              type="text"
+              className="form-input"
+              style={{ marginBottom: '15px' }}
+              placeholder="🔍 Search stock summary by name or category..."
+              value={summarySearch}
+              onChange={(e) => setSummarySearch(e.target.value)}
+            />
+
+            <div style={{ overflowY: 'auto', flexGrow: 1, minHeight: '200px' }}>
+              {summaryLoading ? (
+                <div className="flex-center" style={{ minHeight: '200px' }}>Loading stock summary...</div>
+              ) : filteredSummary.length > 0 ? (
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Material Name</th>
+                        <th style={{ textAlign: 'right' }}>Stock Available</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSummary.map(m => (
+                        <tr key={m._id}>
+                          <td>
+                            <span className="badge badge-pending" style={{ fontSize: '11px' }}>
+                              {m.category}
+                            </span>
+                          </td>
+                          <td><strong>{m.name}</strong></td>
+                          <td style={{ textAlign: 'right', fontWeight: '700' }}>{m.quantity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex-center" style={{ minHeight: '200px', flexDirection: 'column', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '32px', marginBottom: '10px' }}>📦</span>
+                  <p>No filled items currently in stock at this site.</p>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowSummaryModal(false); setSummarySearch(''); }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

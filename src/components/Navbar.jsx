@@ -15,12 +15,12 @@ const Navbar = ({ toggleSidebar }) => {
       '/carpentry': 'Carpentry Materials',
       '/false-ceiling': 'False Ceiling Materials',
       '/painting': 'Painting Materials',
-      '/aluminium': 'Aluminium Work Materials',
+      '/civil-work': 'Civil Work Materials',
       '/electrical': 'Electrical Materials',
       '/modular': 'Modular Materials',
       '/request': user?.role === 'admin' ? 'Pending Material Requests' : 'Request Material',
       '/sites': 'Manage Project Sites',
-      '/users': 'Manage Workers & Assignments',
+      '/users': 'Manage Supervisors & Assignments',
     };
     return map[path] || 'Inventory Management';
   };
@@ -42,7 +42,7 @@ const Navbar = ({ toggleSidebar }) => {
         <div className="navbar-user-details">
           <div className="navbar-user-name">{user.name}</div>
           <div className="navbar-user-role">
-            {user.role} {user.assignedSite ? `• Site: ${user.assignedSite}` : ''}
+            {user.role === 'admin' ? 'Admin' : 'Supervisor'} {user.assignedSite ? `• Site: ${user.assignedSite}` : ''}
           </div>
         </div>
         <div className={`navbar-avatar ${user.role === 'admin' ? 'admin' : ''}`}>

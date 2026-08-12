@@ -25,7 +25,7 @@ function App() {
             <Route path="carpentry" element={<CategoryPage category="Carpentry" />} />
             <Route path="false-ceiling" element={<CategoryPage category="False Ceiling" />} />
             <Route path="painting" element={<CategoryPage category="Painting" />} />
-            <Route path="aluminium" element={<CategoryPage category="Aluminium Work" />} />
+            <Route path="civil-work" element={<CategoryPage category="Civil Work" />} />
             <Route path="electrical" element={<CategoryPage category="Electrical" />} />
             <Route path="modular" element={<CategoryPage category="Modular" />} />
             

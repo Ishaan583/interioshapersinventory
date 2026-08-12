@@ -239,6 +239,28 @@ const DB = {
         return deleted;
       }
       return null;
+    },
+    updateMany: async (filter, update) => {
+      if (isMongo) return await MaterialModel.updateMany(filter, update);
+      const db = readJsonDb();
+      let modifiedCount = 0;
+      db.materials = db.materials.map(m => {
+        let match = true;
+        for (let key in filter) {
+          if (m[key] !== filter[key]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          modifiedCount++;
+          const setFields = update.$set || update;
+          return { ...m, ...setFields, updatedAt: new Date().toISOString() };
+        }
+        return m;
+      });
+      writeJsonDb(db);
+      return { modifiedCount };
     }
   },
 

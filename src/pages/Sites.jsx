@@ -46,7 +46,7 @@ const Sites = () => {
   };
 
   const handleDeleteSite = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete project site: "${name}"? This does NOT delete existing materials assigned to this site, but will prevent assigning new materials/workers to this site.`)) return;
+    if (!window.confirm(`Are you sure you want to delete project site: "${name}"? This does NOT delete existing materials assigned to this site, but will prevent assigning new materials/supervisors to this site.`)) return;
     try {
       await API.deleteSite(id);
       fetchSites();

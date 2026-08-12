@@ -13,7 +13,7 @@ const Sidebar = ({ collapsed, isMobile }) => {
     { path: '/carpentry', label: 'Carpentry', icon: '🪵' },
     { path: '/false-ceiling', label: 'False Ceiling', icon: '🏗️' },
     { path: '/painting', label: 'Painting', icon: '🎨' },
-    { path: '/aluminium', label: 'Aluminium Work', icon: '🪟' },
+    { path: '/civil-work', label: 'Civil Work', icon: '🧱' },
     { path: '/electrical', label: 'Electrical', icon: '⚡' },
     { path: '/modular', label: 'Modular', icon: '📦' },
     { path: '/request', label: isAdmin ? 'Material Requests' : 'Request Material', icon: '➕' },
