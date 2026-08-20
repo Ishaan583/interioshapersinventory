@@ -12,6 +12,17 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  // `vite preview` serves the real production bundle, which is the only way to
+  // catch behaviour that StrictMode's double-invoked effects mask in dev.
+  preview: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   }
 })
 
