@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const { connectDB, DB } = require('./models/db');
 const { PREDEFINED_ITEMS } = require('./utils/predefined');
+const { DEFAULT_UNITS } = require('./utils/units');
 
 // Route Imports
 const authRoutes = require('./routes/auth');
@@ -13,6 +14,7 @@ const requestsRoutes = require('./routes/requests');
 const reportsRoutes = require('./routes/reports');
 const usersRoutes = require('./routes/users');
 const statsRoutes = require('./routes/stats');
+const unitsRoutes = require('./routes/units');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -45,6 +47,7 @@ app.use('/api/requests', requestsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/units', unitsRoutes);
 
 // Flatten PREDEFINED_ITEMS once into [{ category, name }]
 const PREDEFINED_LIST = Object.entries(PREDEFINED_ITEMS).flatMap(([category, names]) =>
@@ -81,6 +84,26 @@ const seedDatabase = async () => {
   } catch (err) {
     console.error('❌ Failed to seed database:', err);
     return false;
+  }
+};
+
+// Make sure the default measurement units exist. One read plus at most one
+// bulk insert, so it stays cheap to run on every boot.
+const seedUnits = async () => {
+  try {
+    const existing = await DB.Units.find();
+    const seen = new Set(existing.map(u => u.key));
+
+    const missing = DEFAULT_UNITS
+      .map((name, index) => ({ name, key: name.toLowerCase(), order: index }))
+      .filter(u => !seen.has(u.key));
+
+    if (missing.length > 0) {
+      await DB.Units.insertMany(missing);
+      console.log(`✅ Added ${missing.length} default measurement units.`);
+    }
+  } catch (err) {
+    console.error('❌ Failed to seed units:', err);
   }
 };
 
@@ -162,6 +185,7 @@ const startServer = async () => {
   // Background work: never blocks a user request.
   const freshlySeeded = await seedDatabase();
   if (!freshlySeeded) await runMigrations();
+  await seedUnits();
 
   startKeepAlive();
 };

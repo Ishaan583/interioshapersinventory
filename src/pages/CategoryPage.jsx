@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 import MaterialCard from '../components/MaterialCard';
+import UnitSelect from '../components/UnitSelect';
 
 // Predefined lists to help Admins add items quickly
 const PREDEFINED_ITEMS = {
@@ -258,7 +259,7 @@ const CategoryPage = ({ category }) => {
         category,
         site: formSite,
         quantity: qty,
-        unit: formUnit.trim()
+        unit: formUnit
       });
       
       // Close modal and refresh list
@@ -284,7 +285,7 @@ const CategoryPage = ({ category }) => {
         name: formName,
         site: formSite,
         quantity: qty,
-        unit: formUnit.trim()
+        unit: formUnit
       });
       setShowEditModal(false);
       resetForm();
@@ -469,14 +470,7 @@ const CategoryPage = ({ category }) => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unit</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="kg, nos, sq ft…"
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                    maxLength={20}
-                  />
+                  <UnitSelect value={formUnit} onChange={setFormUnit} />
                 </div>
               </div>
 
@@ -540,14 +534,7 @@ const CategoryPage = ({ category }) => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unit</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="kg, nos, sq ft…"
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                    maxLength={20}
-                  />
+                  <UnitSelect value={formUnit} onChange={setFormUnit} />
                 </div>
               </div>
 

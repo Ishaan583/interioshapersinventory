@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
+import UnitSelect from '../components/UnitSelect';
 
 const RequestItem = () => {
   const { user } = useAuth();
@@ -93,7 +94,7 @@ const RequestItem = () => {
           category,
           name,
           quantity: qty,
-          unit: unit.trim(),
+          unit,
           reason,
           site: user.assignedSite
         });
@@ -441,15 +442,8 @@ const RequestItem = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Unit</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="kg, nos…"
-                      value={unit}
-                      onChange={(e) => setUnit(e.target.value)}
-                      maxLength={20}
-                      disabled={tab === 'return'}
-                    />
+                    {/* On a return the unit is fixed by the stocked item */}
+                    <UnitSelect value={unit} onChange={setUnit} disabled={tab === 'return'} />
                   </div>
                 </div>
 
