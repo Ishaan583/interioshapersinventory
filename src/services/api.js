@@ -8,7 +8,18 @@ axios.defaults.baseURL = apiURL;
 // rather than failing the request while the server is still booting.
 axios.defaults.timeout = 60000;
 
-// The Authorization header is automatically attached in AuthContext.jsx when token changes
+// Attach the token at request time, read straight from localStorage.
+// Relying on AuthContext's effect to set axios.defaults was a race: provider
+// effects run children-first, so a consumer firing a request on mount went out
+// unauthenticated and got a 401. StrictMode's double-invoke hid this in dev but
+// production builds run the effect once, so the request simply failed.
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // The backend answers 503 while its database connection is still warming up.
 // Retry those transparently instead of showing the user an error.
