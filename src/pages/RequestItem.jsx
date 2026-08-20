@@ -16,7 +16,8 @@ const RequestItem = () => {
   // Form states (Worker)
   const [category, setCategory] = useState('Carpentry');
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState('1');
+  const [unit, setUnit] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -58,6 +59,7 @@ const RequestItem = () => {
       if (available.length > 0) {
         setSelectedMaterial(available[0]);
         setName(available[0].name);
+        setUnit(available[0].unit || '');
       } else {
         setSelectedMaterial(null);
         setName('');
@@ -72,12 +74,14 @@ const RequestItem = () => {
     setName(matName);
     const mat = siteMaterials.find(m => m.name === matName);
     setSelectedMaterial(mat || null);
-    setQuantity(1); // Reset quantity to 1 when item changes
+    setUnit(mat?.unit || '');
+    setQuantity('1'); // Reset quantity to 1 when item changes
   };
 
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
-    if (!name || quantity <= 0) {
+    const qty = parseFloat(quantity);
+    if (!name || isNaN(qty) || qty <= 0) {
       alert('Please enter a valid item name and quantity.');
       return;
     }
@@ -88,7 +92,8 @@ const RequestItem = () => {
         await API.createRequest({
           category,
           name,
-          quantity: parseInt(quantity),
+          quantity: qty,
+          unit: unit.trim(),
           reason,
           site: user.assignedSite
         });
@@ -100,8 +105,8 @@ const RequestItem = () => {
           setSubmitting(false);
           return;
         }
-        if (parseInt(quantity) > selectedMaterial.quantity) {
-          alert(`You cannot return more than available stock (${selectedMaterial.quantity}).`);
+        if (qty > selectedMaterial.quantity) {
+          alert(`You cannot return more than available stock (${selectedMaterial.quantity}${selectedMaterial.unit ? ' ' + selectedMaterial.unit : ''}).`);
           setSubmitting(false);
           return;
         }
@@ -109,7 +114,7 @@ const RequestItem = () => {
         await API.createReturn({
           category,
           name,
-          quantity: parseInt(quantity),
+          quantity: qty,
           reason,
           site: user.assignedSite
         });
@@ -117,7 +122,8 @@ const RequestItem = () => {
       }
       
       setName('');
-      setQuantity(1);
+      setQuantity('1');
+      setUnit('');
       setReason('');
       fetchRequests();
       if (tab === 'return') {
@@ -192,7 +198,7 @@ const RequestItem = () => {
                         <td><span className="badge badge-success">{req.site}</span></td>
                         <td>{req.category}</td>
                         <td>{req.name}</td>
-                        <td><strong>{req.quantity}</strong></td>
+                        <td><strong>{req.quantity}</strong>{req.unit ? ` ${req.unit}` : ''}</td>
                         <td>{req.reason || 'N/A'}</td>
                         <td>
                           <span className={`badge badge-${req.status}`}>
@@ -259,7 +265,7 @@ const RequestItem = () => {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '13px' }}>
                         <div>
-                          <span style={{ color: 'var(--text-secondary)' }}>Quantity:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.quantity}</strong>
+                          <span style={{ color: 'var(--text-secondary)' }}>Quantity:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.quantity}{req.unit ? ` ${req.unit}` : ''}</strong>
                         </div>
                         <div>
                           <span style={{ color: 'var(--text-secondary)' }}>Category:</span> <strong style={{ color: 'var(--text-primary)' }}>{req.category}</strong>
@@ -404,7 +410,7 @@ const RequestItem = () => {
                       >
                         {siteMaterials.filter(m => m.quantity > 0).map(m => (
                           <option key={m._id} value={m.name}>
-                            {m.name} (Stock: {m.quantity})
+                            {m.name} (Stock: {m.quantity}{m.unit ? ` ${m.unit}` : ''})
                           </option>
                         ))}
                       </select>
@@ -416,21 +422,35 @@ const RequestItem = () => {
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label className="form-label">
-                    {tab === 'request' ? 'Quantity Needed' : 'Quantity to Return'}
-                    {tab === 'return' && selectedMaterial && ` (Max: ${selectedMaterial.quantity})`}
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="1"
-                    max={tab === 'return' && selectedMaterial ? selectedMaterial.quantity : undefined}
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    required
-                    disabled={tab === 'return' && !selectedMaterial}
-                  />
+                <div className="qty-unit-row">
+                  <div className="form-group">
+                    <label className="form-label">
+                      {tab === 'request' ? 'Quantity Needed' : 'Quantity to Return'}
+                      {tab === 'return' && selectedMaterial && ` (Max: ${selectedMaterial.quantity})`}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="form-input"
+                      placeholder="e.g. 1250 or 12.5"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      required
+                      disabled={tab === 'return' && !selectedMaterial}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Unit</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="kg, nos…"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      maxLength={20}
+                      disabled={tab === 'return'}
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -502,7 +522,7 @@ const RequestItem = () => {
                           )}
                         </td>
                         <td><strong>{req.name}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({req.category})</span></td>
-                        <td>{req.quantity}</td>
+                        <td>{req.quantity}{req.unit ? ` ${req.unit}` : ''}</td>
                         <td>{req.reason || '-'}</td>
                         <td>
                           <span className={`badge badge-${req.status}`}>
@@ -527,7 +547,8 @@ const RequestItem = () => {
 
   function resetForm() {
     setName('');
-    setQuantity(1);
+    setQuantity('1');
+    setUnit('');
     setReason('');
     setSelectedMaterial(null);
   }

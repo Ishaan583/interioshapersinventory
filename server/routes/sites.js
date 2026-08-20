@@ -31,19 +31,13 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
     const siteName = name.trim();
     const site = await DB.Sites.create({ name: siteName });
     
-    // Seed new site with all predefined items at 0 quantity
+    // Seed new site with all predefined items at 0 quantity.
+    // Single bulk insert — one round trip instead of ~144.
     const { PREDEFINED_ITEMS } = require('../utils/predefined');
-    for (let category in PREDEFINED_ITEMS) {
-      const itemNames = PREDEFINED_ITEMS[category];
-      for (let itemName of itemNames) {
-        await DB.Materials.create({
-          name: itemName,
-          category,
-          quantity: 0,
-          site: siteName
-        });
-      }
-    }
+    const docs = Object.entries(PREDEFINED_ITEMS).flatMap(([category, itemNames]) =>
+      itemNames.map(itemName => ({ name: itemName, category, quantity: 0, unit: '', site: siteName }))
+    );
+    await DB.Materials.insertMany(docs);
 
     // Log Activity
     await DB.History.create({

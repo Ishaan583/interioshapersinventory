@@ -1,6 +1,7 @@
 const express = require('express');
 const { DB } = require('../models/db');
 const { verifyToken, isAdmin } = require('../middleware/auth');
+const { parseQty, parseUnit } = require('../utils/qty');
 
 const router = express.Router();
 
@@ -38,14 +39,19 @@ router.get('/', verifyToken, async (req, res) => {
 // @desc    Add material (Admin Only, incorporates duplicate merging)
 // @access  Private (Admin Only)
 router.post('/', verifyToken, isAdmin, async (req, res) => {
-  const { name, category, quantity, site } = req.body;
+  const { name, category, quantity, unit, site } = req.body;
 
   if (!name || !category || quantity === undefined || !site) {
     return res.status(400).json({ message: 'Please provide name, category, quantity, and site.' });
   }
 
   const trimmedName = name.trim();
-  const parsedQty = parseInt(quantity);
+  const parsedQty = parseQty(quantity);
+  const parsedUnit = parseUnit(unit);
+
+  if (parsedQty === null || parsedQty < 0) {
+    return res.status(400).json({ message: 'Quantity must be a valid non-negative number.' });
+  }
 
   try {
     // Check if site exists
@@ -65,12 +71,13 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
     if (duplicate) {
       // Merge with existing
       const newQty = duplicate.quantity + parsedQty;
-      const updated = await DB.Materials.findByIdAndUpdate(duplicate._id, { quantity: newQty });
+      const mergedUnit = parsedUnit || duplicate.unit || '';
+      const updated = await DB.Materials.findByIdAndUpdate(duplicate._id, { quantity: newQty, unit: mergedUnit });
       
       // Log Activity
       await DB.History.create({
         userName: req.user.name,
-        action: `Merged ${parsedQty} units into existing item "${duplicate.name}" (New Qty: ${newQty})`,
+        action: `Merged ${parsedQty} ${mergedUnit || 'units'} into existing item "${duplicate.name}" (New Qty: ${newQty} ${mergedUnit})`.trim(),
         site
       });
 
@@ -85,13 +92,14 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
       name: trimmedName,
       category,
       quantity: parsedQty,
+      unit: parsedUnit,
       site
     });
 
     // Log Activity
     await DB.History.create({
       userName: req.user.name,
-      action: `Created material "${trimmedName}" with quantity ${parsedQty}`,
+      action: `Created material "${trimmedName}" with quantity ${parsedQty} ${parsedUnit}`.trim(),
       site
     });
 
@@ -106,7 +114,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
 // @desc    Edit material details (Admin Only)
 // @access  Private (Admin Only)
 router.put('/:id', verifyToken, isAdmin, async (req, res) => {
-  const { name, site, quantity } = req.body;
+  const { name, site, quantity, unit } = req.body;
 
   try {
     const material = await DB.Materials.find({ _id: req.params.id });
@@ -114,10 +122,19 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Material not found.' });
     }
 
+    let newQty = material[0].quantity;
+    if (quantity !== undefined) {
+      newQty = parseQty(quantity);
+      if (newQty === null || newQty < 0) {
+        return res.status(400).json({ message: 'Quantity must be a valid non-negative number.' });
+      }
+    }
+
     const updated = await DB.Materials.findByIdAndUpdate(req.params.id, {
       name: name ? name.trim() : material[0].name,
       site: site || material[0].site,
-      quantity: quantity !== undefined ? parseInt(quantity) : material[0].quantity
+      quantity: newQty,
+      unit: unit !== undefined ? parseUnit(unit) : (material[0].unit || '')
     });
 
     // Log Activity
@@ -162,10 +179,10 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
 // @desc    Adjust quantity by +change or -change (Admin & assigned site Worker)
 // @access  Private
 router.patch('/:id/quantity', verifyToken, async (req, res) => {
-  const { change, newValue } = req.body;
+  const { change, newValue, unit } = req.body;
 
-  if (change === undefined && newValue === undefined) {
-    return res.status(400).json({ message: 'Please provide either a relative change or a newValue.' });
+  if (change === undefined && newValue === undefined && unit === undefined) {
+    return res.status(400).json({ message: 'Please provide a relative change, a newValue, or a unit.' });
   }
 
   try {
@@ -182,41 +199,53 @@ router.patch('/:id/quantity', verifyToken, async (req, res) => {
 
     // SCAM PROTECTION: Workers cannot decrease stock directly!
     if (req.user.role === 'worker') {
-      if (change !== undefined && change < 0) {
+      if (change !== undefined && parseQty(change) < 0) {
         return res.status(403).json({ message: 'Only admin can change that' });
       }
-      if (newValue !== undefined && newValue < material.quantity) {
+      if (newValue !== undefined && parseQty(newValue) < material.quantity) {
         return res.status(403).json({ message: 'Only admin can change that' });
       }
     }
 
-    let newQty;
-    let logAction = '';
+    let newQty = material.quantity;
+    const newUnit = unit !== undefined ? parseUnit(unit) : (material.unit || '');
+    const logParts = [];
 
     if (newValue !== undefined) {
-      newQty = parseInt(newValue);
-      if (isNaN(newQty) || newQty < 0) {
+      const parsed = parseQty(newValue);
+      if (parsed === null || parsed < 0) {
         return res.status(400).json({ message: 'New quantity must be a valid non-negative number.' });
       }
-      logAction = `Set "${material.name}" quantity directly to ${newQty}`;
-    } else {
-      newQty = material.quantity + change;
+      newQty = parsed;
+      logParts.push(`Set "${material.name}" quantity to ${newQty} ${newUnit}`.trim());
+    } else if (change !== undefined) {
+      const parsedChange = parseQty(change);
+      if (parsedChange === null) {
+        return res.status(400).json({ message: 'Change must be a valid number.' });
+      }
+      newQty = Math.round((material.quantity + parsedChange) * 1000) / 1000;
       if (newQty < 0) {
         return res.status(400).json({ message: 'Action failed. Material quantity cannot fall below 0.' });
       }
-      logAction = `${change > 0 ? 'Increased' : 'Decreased'} "${material.name}" quantity by ${Math.abs(change)} (Current Qty: ${newQty})`;
+      logParts.push(`${parsedChange > 0 ? 'Increased' : 'Decreased'} "${material.name}" quantity by ${Math.abs(parsedChange)} (Current Qty: ${newQty} ${newUnit})`.trim());
     }
 
-    const updated = await DB.Materials.findByIdAndUpdate(req.params.id, { quantity: newQty });
+    if (unit !== undefined && newUnit !== (material.unit || '')) {
+      logParts.push(`Set unit of "${material.name}" to "${newUnit}"`);
+    }
+
+    const updated = await DB.Materials.findByIdAndUpdate(req.params.id, { quantity: newQty, unit: newUnit });
 
     // Log Activity
-    await DB.History.create({
-      userName: req.user.name,
-      action: logAction,
-      site: material.site
-    });
+    if (logParts.length > 0) {
+      await DB.History.create({
+        userName: req.user.name,
+        action: logParts.join('; '),
+        site: material.site
+      });
+    }
 
-    res.json({ message: 'Quantity adjusted successfully.', material: { ...updated, quantity: newQty } });
+    res.json({ message: 'Quantity adjusted successfully.', material: { ...updated, quantity: newQty, unit: newUnit } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error adjusting quantity.' });

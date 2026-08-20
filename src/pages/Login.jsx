@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { warmUpServer } from '../services/api';
 
 const Login = () => {
   const { user, login, register } = useAuth();
@@ -11,6 +12,20 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [waking, setWaking] = useState(false);
+
+  // The backend sleeps when idle. Ping it the moment the login page opens so it
+  // is already awake by the time credentials are submitted.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => { if (!cancelled) setWaking(true); }, 2500);
+    warmUpServer().finally(() => {
+      if (cancelled) return;
+      clearTimeout(timer);
+      setWaking(false);
+    });
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -52,6 +67,22 @@ const Login = () => {
           <h2>Interio Shapers</h2>
           <p>{isSignUp ? 'Register New Account' : 'Inventory Management System'}</p>
         </div>
+
+        {waking && !error && (
+          <div
+            className="badge badge-pending"
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '20px',
+              textTransform: 'none',
+              fontSize: '13px'
+            }}
+          >
+            ⏳ Waking up the server — this only happens after a period of inactivity.
+          </div>
+        )}
 
         {error && (
           <div 

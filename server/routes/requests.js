@@ -1,6 +1,7 @@
 const express = require('express');
 const { DB } = require('../models/db');
 const { verifyToken, isAdmin } = require('../middleware/auth');
+const { parseQty, parseUnit } = require('../utils/qty');
 
 const router = express.Router();
 
@@ -25,21 +26,29 @@ router.get('/', verifyToken, async (req, res) => {
 // @desc    Submit a material request (Worker Only)
 // @access  Private
 router.post('/', verifyToken, async (req, res) => {
-  const { name, category, quantity, reason, site } = req.body;
+  const { name, category, quantity, unit, reason, site } = req.body;
 
   if (req.user.role !== 'worker') {
     return res.status(403).json({ message: 'Only workers can submit material requests.' });
   }
 
-  if (!name || !category || !quantity || !site) {
+  if (!name || !category || quantity === undefined || !site) {
     return res.status(400).json({ message: 'Please provide material name, category, quantity, and site.' });
+  }
+
+  const parsedQty = parseQty(quantity);
+  const parsedUnit = parseUnit(unit);
+
+  if (parsedQty === null || parsedQty <= 0) {
+    return res.status(400).json({ message: 'Quantity must be a number greater than 0.' });
   }
 
   try {
     const request = await DB.Requests.create({
       name: name.trim(),
       category,
-      quantity: parseInt(quantity),
+      quantity: parsedQty,
+      unit: parsedUnit,
       reason: reason ? reason.trim() : '',
       workerName: req.user.name,
       workerId: req.user.id,
@@ -49,7 +58,7 @@ router.post('/', verifyToken, async (req, res) => {
     // Log Activity
     await DB.History.create({
       userName: req.user.name,
-      action: `Submitted request for "${name.trim()}" (${quantity} units)`,
+      action: `Submitted request for "${name.trim()}" (${parsedQty} ${parsedUnit || 'units'})`,
       site
     });
 
@@ -94,12 +103,16 @@ router.patch('/:id', verifyToken, isAdmin, async (req, res) => {
 
       if (duplicate) {
         const newQty = duplicate.quantity + request.quantity;
-        await DB.Materials.findByIdAndUpdate(duplicate._id, { quantity: newQty });
+        await DB.Materials.findByIdAndUpdate(duplicate._id, {
+          quantity: newQty,
+          unit: duplicate.unit || request.unit || ''
+        });
       } else {
         await DB.Materials.create({
           name: request.name,
           category: request.category,
           quantity: request.quantity,
+          unit: request.unit || '',
           site: request.site
         });
       }
@@ -129,13 +142,13 @@ router.post('/return', verifyToken, async (req, res) => {
     return res.status(403).json({ message: 'Only workers can log return items.' });
   }
 
-  if (!name || !category || !quantity || !site) {
+  if (!name || !category || quantity === undefined || !site) {
     return res.status(400).json({ message: 'Please provide material name, category, quantity, and site.' });
   }
 
-  const parsedQty = parseInt(quantity);
-  if (parsedQty <= 0) {
-    return res.status(400).json({ message: 'Return quantity must be greater than 0.' });
+  const parsedQty = parseQty(quantity);
+  if (parsedQty === null || parsedQty <= 0) {
+    return res.status(400).json({ message: 'Return quantity must be a number greater than 0.' });
   }
 
   try {
@@ -156,7 +169,7 @@ router.post('/return', verifyToken, async (req, res) => {
     }
 
     // 1. Deduct quantity from site inventory
-    const newQty = material.quantity - parsedQty;
+    const newQty = Math.round((material.quantity - parsedQty) * 1000) / 1000;
     await DB.Materials.findByIdAndUpdate(material._id, { quantity: newQty });
 
     // 2. Create the return request record (marked as instantly resolved/returned)
@@ -164,6 +177,7 @@ router.post('/return', verifyToken, async (req, res) => {
       name: name.trim(),
       category,
       quantity: parsedQty,
+      unit: material.unit || '',
       reason: reason ? reason.trim() : '',
       workerName: req.user.name,
       workerId: req.user.id,
@@ -175,7 +189,7 @@ router.post('/return', verifyToken, async (req, res) => {
     // 3. Log Activity
     await DB.History.create({
       userName: req.user.name,
-      action: `Returned leftover material "${name.trim()}" (${parsedQty} units)`,
+      action: `Returned leftover material "${name.trim()}" (${parsedQty} ${material.unit || 'units'})`,
       site
     });
 

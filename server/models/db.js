@@ -24,13 +24,19 @@ const initializeMongoModels = () => {
     name: { type: String, required: true },
     category: { type: String, required: true },
     quantity: { type: Number, required: true, default: 0 },
+    unit: { type: String, default: '' },
     site: { type: String, required: true }
   }, { timestamps: true });
+
+  // Indexes: every material read filters on site and/or category
+  materialSchema.index({ site: 1, category: 1 });
+  materialSchema.index({ site: 1, category: 1, name: 1 });
 
   const requestSchema = new mongoose.Schema({
     name: { type: String, required: true },
     category: { type: String, required: true },
     quantity: { type: Number, required: true },
+    unit: { type: String, default: '' },
     reason: { type: String, default: '' },
     type: { type: String, enum: ['request', 'return'], default: 'request' },
     status: { type: String, enum: ['pending', 'approved', 'rejected', 'returned'], default: 'pending' },
@@ -40,12 +46,17 @@ const initializeMongoModels = () => {
     date: { type: Date, default: Date.now }
   }, { timestamps: true });
 
+  requestSchema.index({ workerId: 1, date: -1 });
+  requestSchema.index({ site: 1, status: 1 });
+
   const historySchema = new mongoose.Schema({
     userName: { type: String, required: true },
     action: { type: String, required: true },
     site: { type: String, default: '' },
     date: { type: Date, default: Date.now }
   }, { timestamps: true });
+
+  historySchema.index({ site: 1, date: -1 });
 
   UserModel = mongoose.model('User', userSchema);
   SiteModel = mongoose.model('Site', siteSchema);
@@ -81,21 +92,36 @@ const writeJsonDb = (data) => {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
+
   if (uri) {
-    try {
-      await mongoose.connect(uri);
-      isMongo = true;
-      initializeMongoModels();
-      console.log('✅ Connected to MongoDB Atlas Database');
-      return true;
-    } catch (err) {
-      console.error('❌ Failed to connect to MongoDB, falling back to local JSON database...', err.message);
+    // When a real database is configured we retry instead of silently dropping to
+    // the JSON file — that fallback lives on Render's ephemeral disk and would
+    // quietly lose every write on the next restart.
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        await mongoose.connect(uri, {
+          serverSelectionTimeoutMS: 10000,
+          socketTimeoutMS: 45000,
+          maxPoolSize: 10,
+          minPoolSize: 1
+        });
+        isMongo = true;
+        initializeMongoModels();
+        console.log('✅ Connected to MongoDB Atlas Database');
+        return true;
+      } catch (err) {
+        console.error(`❌ MongoDB connection attempt ${attempt}/5 failed: ${err.message}`);
+        if (attempt < 5) await sleep(attempt * 2000);
+      }
     }
+    throw new Error('Could not connect to MongoDB after 5 attempts. Check MONGODB_URI and the Atlas IP allowlist.');
   }
-  
-  // Local JSON Database initialization
+
+  // Local JSON Database initialization (development only — no MONGODB_URI set)
   console.log('ℹ️ Using Local JSON Database Fallback');
   readJsonDb(); // Ensure db file exists
   return false;
@@ -107,7 +133,7 @@ const DB = {
   
   Users: {
     find: async (query = {}) => {
-      if (isMongo) return await UserModel.find(query);
+      if (isMongo) return await UserModel.find(query).lean();
       const db = readJsonDb();
       return db.users.filter(u => {
         for (let key in query) {
@@ -117,7 +143,7 @@ const DB = {
       });
     },
     findOne: async (query) => {
-      if (isMongo) return await UserModel.findOne(query);
+      if (isMongo) return await UserModel.findOne(query).lean();
       const db = readJsonDb();
       return db.users.find(u => {
         for (let key in query) {
@@ -127,7 +153,7 @@ const DB = {
       }) || null;
     },
     findById: async (id) => {
-      if (isMongo) return await UserModel.findById(id);
+      if (isMongo) return await UserModel.findById(id).lean();
       const db = readJsonDb();
       return db.users.find(u => u._id === id) || null;
     },
@@ -140,7 +166,7 @@ const DB = {
       return newDoc;
     },
     findByIdAndUpdate: async (id, update) => {
-      if (isMongo) return await UserModel.findByIdAndUpdate(id, update, { new: true });
+      if (isMongo) return await UserModel.findByIdAndUpdate(id, update, { new: true }).lean();
       const db = readJsonDb();
       const idx = db.users.findIndex(u => u._id === id);
       if (idx !== -1) {
@@ -154,7 +180,7 @@ const DB = {
 
   Sites: {
     find: async (query = {}) => {
-      if (isMongo) return await SiteModel.find(query);
+      if (isMongo) return await SiteModel.find(query).lean();
       const db = readJsonDb();
       return db.sites.filter(s => {
         for (let key in query) {
@@ -162,6 +188,16 @@ const DB = {
         }
         return true;
       });
+    },
+    count: async (query = {}) => {
+      if (isMongo) return await SiteModel.countDocuments(query);
+      const db = readJsonDb();
+      return db.sites.filter(x => {
+        for (let key in query) {
+          if (x[key] !== query[key]) return false;
+        }
+        return true;
+      }).length;
     },
     create: async (siteDoc) => {
       if (isMongo) return await SiteModel.create(siteDoc);
@@ -190,7 +226,7 @@ const DB = {
 
   Materials: {
     find: async (query = {}) => {
-      if (isMongo) return await MaterialModel.find(query);
+      if (isMongo) return await MaterialModel.find(query).lean();
       const db = readJsonDb();
       return db.materials.filter(m => {
         for (let key in query) {
@@ -200,7 +236,7 @@ const DB = {
       });
     },
     findOne: async (query) => {
-      if (isMongo) return await MaterialModel.findOne(query);
+      if (isMongo) return await MaterialModel.findOne(query).lean();
       const db = readJsonDb();
       return db.materials.find(m => {
         for (let key in query) {
@@ -218,7 +254,7 @@ const DB = {
       return newDoc;
     },
     findByIdAndUpdate: async (id, update) => {
-      if (isMongo) return await MaterialModel.findByIdAndUpdate(id, update, { new: true });
+      if (isMongo) return await MaterialModel.findByIdAndUpdate(id, update, { new: true }).lean();
       const db = readJsonDb();
       const idx = db.materials.findIndex(m => m._id === id);
       if (idx !== -1) {
@@ -239,6 +275,28 @@ const DB = {
         return deleted;
       }
       return null;
+    },
+    count: async (query = {}) => {
+      // Counting server-side avoids pulling every matching document over the
+      // wire just to read its .length.
+      if (isMongo) return await MaterialModel.countDocuments(query);
+      const db = readJsonDb();
+      return db.materials.filter(m => {
+        for (let key in query) {
+          if (m[key] !== query[key]) return false;
+        }
+        return true;
+      }).length;
+    },
+    insertMany: async (docs) => {
+      if (!docs || docs.length === 0) return [];
+      if (isMongo) return await MaterialModel.insertMany(docs, { ordered: false });
+      const db = readJsonDb();
+      const now = new Date().toISOString();
+      const created = docs.map(d => ({ _id: generateId(), ...d, createdAt: now, updatedAt: now }));
+      db.materials.push(...created);
+      writeJsonDb(db);
+      return created;
     },
     updateMany: async (filter, update) => {
       if (isMongo) return await MaterialModel.updateMany(filter, update);
@@ -266,7 +324,7 @@ const DB = {
 
   Requests: {
     find: async (query = {}) => {
-      if (isMongo) return await RequestModel.find(query).sort({ date: -1 });
+      if (isMongo) return await RequestModel.find(query).sort({ date: -1 }).lean();
       const db = readJsonDb();
       const filtered = db.requests.filter(r => {
         for (let key in query) {
@@ -277,6 +335,16 @@ const DB = {
       // Sort by date desc
       return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
     },
+    count: async (query = {}) => {
+      if (isMongo) return await RequestModel.countDocuments(query);
+      const db = readJsonDb();
+      return db.requests.filter(r => {
+        for (let key in query) {
+          if (r[key] !== query[key]) return false;
+        }
+        return true;
+      }).length;
+    },
     create: async (reqDoc) => {
       if (isMongo) return await RequestModel.create(reqDoc);
       const db = readJsonDb();
@@ -286,12 +354,12 @@ const DB = {
       return newDoc;
     },
     findById: async (id) => {
-      if (isMongo) return await RequestModel.findById(id);
+      if (isMongo) return await RequestModel.findById(id).lean();
       const db = readJsonDb();
       return db.requests.find(r => r._id === id) || null;
     },
     findByIdAndUpdate: async (id, update) => {
-      if (isMongo) return await RequestModel.findByIdAndUpdate(id, update, { new: true });
+      if (isMongo) return await RequestModel.findByIdAndUpdate(id, update, { new: true }).lean();
       const db = readJsonDb();
       const idx = db.requests.findIndex(r => r._id === id);
       if (idx !== -1) {
@@ -305,7 +373,7 @@ const DB = {
 
   History: {
     find: async (query = {}) => {
-      if (isMongo) return await HistoryModel.find(query).sort({ date: -1 }).limit(15);
+      if (isMongo) return await HistoryModel.find(query).sort({ date: -1 }).limit(15).lean();
       const db = readJsonDb();
       const filtered = db.history.filter(h => {
         for (let key in query) {
