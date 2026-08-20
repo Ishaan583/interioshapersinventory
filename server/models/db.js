@@ -5,7 +5,7 @@ const path = require('path');
 let isMongo = false;
 
 // Mongoose Models
-let UserModel, SiteModel, MaterialModel, RequestModel, HistoryModel;
+let UserModel, SiteModel, MaterialModel, RequestModel, HistoryModel, UnitModel;
 
 const initializeMongoModels = () => {
   const userSchema = new mongoose.Schema({
@@ -58,11 +58,21 @@ const initializeMongoModels = () => {
 
   historySchema.index({ site: 1, date: -1 });
 
+  // Shared vocabulary of measurement units shown in the unit dropdown.
+  // `key` is the lowercased name and carries the uniqueness constraint so
+  // "Bag" and "bag" cannot both be added.
+  const unitSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    key: { type: String, required: true, unique: true },
+    order: { type: Number, default: 100 }
+  }, { timestamps: true });
+
   UserModel = mongoose.model('User', userSchema);
   SiteModel = mongoose.model('Site', siteSchema);
   MaterialModel = mongoose.model('Material', materialSchema);
   RequestModel = mongoose.model('Request', requestSchema);
   HistoryModel = mongoose.model('History', historySchema);
+  UnitModel = mongoose.model('Unit', unitSchema);
 };
 
 // JSON Database Implementation
@@ -73,16 +83,19 @@ const readJsonDb = () => {
     fs.mkdirSync(path.dirname(JSON_DB_PATH), { recursive: true });
   }
   if (!fs.existsSync(JSON_DB_PATH)) {
-    const initialDb = { users: [], sites: [], materials: [], requests: [], history: [] };
+    const initialDb = { users: [], sites: [], materials: [], requests: [], history: [], units: [] };
     fs.writeFileSync(JSON_DB_PATH, JSON.stringify(initialDb, null, 2));
     return initialDb;
   }
   try {
     const data = fs.readFileSync(JSON_DB_PATH, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Collections added after a db.json was first written
+    if (!parsed.units) parsed.units = [];
+    return parsed;
   } catch (err) {
     console.error('Error reading JSON DB, resetting...', err);
-    return { users: [], sites: [], materials: [], requests: [], history: [] };
+    return { users: [], sites: [], materials: [], requests: [], history: [], units: [] };
   }
 };
 
@@ -366,6 +379,61 @@ const DB = {
         db.requests[idx] = { ...db.requests[idx], ...update, updatedAt: new Date().toISOString() };
         writeJsonDb(db);
         return db.requests[idx];
+      }
+      return null;
+    }
+  },
+
+  Units: {
+    find: async () => {
+      if (isMongo) return await UnitModel.find().sort({ order: 1, name: 1 }).lean();
+      const db = readJsonDb();
+      return [...db.units].sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
+    },
+    findOne: async (query) => {
+      if (isMongo) return await UnitModel.findOne(query).lean();
+      const db = readJsonDb();
+      return db.units.find(u => {
+        for (let key in query) {
+          if (u[key] !== query[key]) return false;
+        }
+        return true;
+      }) || null;
+    },
+    create: async (unitDoc) => {
+      if (isMongo) return await UnitModel.create(unitDoc);
+      const db = readJsonDb();
+      if (db.units.some(u => u.key === unitDoc.key)) {
+        const err = new Error('Unit already exists');
+        err.code = 11000;
+        throw err;
+      }
+      const newDoc = { _id: generateId(), ...unitDoc, createdAt: new Date().toISOString() };
+      db.units.push(newDoc);
+      writeJsonDb(db);
+      return newDoc;
+    },
+    insertMany: async (docs) => {
+      if (!docs || docs.length === 0) return [];
+      if (isMongo) return await UnitModel.insertMany(docs, { ordered: false });
+      const db = readJsonDb();
+      const now = new Date().toISOString();
+      const created = docs
+        .filter(d => !db.units.some(u => u.key === d.key))
+        .map(d => ({ _id: generateId(), ...d, createdAt: now }));
+      db.units.push(...created);
+      writeJsonDb(db);
+      return created;
+    },
+    findByIdAndDelete: async (id) => {
+      if (isMongo) return await UnitModel.findByIdAndDelete(id);
+      const db = readJsonDb();
+      const idx = db.units.findIndex(u => u._id === id);
+      if (idx !== -1) {
+        const deleted = db.units[idx];
+        db.units.splice(idx, 1);
+        writeJsonDb(db);
+        return deleted;
       }
       return null;
     }

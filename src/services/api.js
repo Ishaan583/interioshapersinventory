@@ -139,6 +139,22 @@ const API = {
     return res.data;
   },
 
+  // Measurement Units
+  getUnits: async () => {
+    const res = await axios.get('/api/units');
+    return res.data;
+  },
+
+  addUnit: async (name) => {
+    const res = await axios.post('/api/units', { name });
+    return res.data;
+  },
+
+  deleteUnit: async (id) => {
+    const res = await axios.delete(`/api/units/${id}`);
+    return res.data;
+  },
+
   // Dashboard Stats
   getStats: async (site) => {
     const res = await axios.get('/api/stats', { params: { site } });

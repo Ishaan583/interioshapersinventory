@@ -599,7 +599,9 @@ button, input, select, textarea {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  flex: 1;
+  /* Needs ~210px to show both fields without crushing the "Quantity" label;
+     below that the whole row wraps onto its own line above the buttons. */
+  flex: 1 1 210px;
   min-width: 0;
 }
 
@@ -607,12 +609,13 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
-  flex: 1 1 0;
+  flex: 1 1 85px;
+  min-width: 85px;
 }
 
 .qty-field-unit {
-  flex: 0 1 90px;
+  flex: 0 1 115px;
+  min-width: 105px;
 }
 
 .qty-field-label {
@@ -641,6 +644,19 @@ button, input, select, textarea {
 .qty-field-unit .qty-input {
   font-weight: 500;
   font-size: 13px;
+}
+
+/* The unit picker reuses .qty-input's box but needs room for the caret */
+.qty-unit-select {
+  padding-right: 26px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8.5 2 4.5h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+  text-overflow: ellipsis;
 }
 
 .qty-input::placeholder {
@@ -675,7 +691,9 @@ button, input, select, textarea {
 /* Quantity + unit pair inside the add/edit modals */
 .qty-unit-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  /* The unit picker must never collapse below a readable width, even inside
+     the narrow request form panel. */
+  grid-template-columns: minmax(0, 1.5fr) minmax(105px, 1fr);
   gap: 12px;
 }
 

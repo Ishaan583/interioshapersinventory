@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import UnitSelect from './UnitSelect';
 
 // Quantities are typed by hand (they can be in the thousands), so there are no
 // +/- steppers here — just a text field that saves on blur or Enter.
@@ -51,11 +52,10 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
     await save({ quantity: parsed });
   };
 
-  const saveUnit = async () => {
-    const trimmed = unitValue.trim();
-    if (trimmed === (material.unit || '')) return;
-    setUnitValue(trimmed);
-    await save({ unit: trimmed });
+  const saveUnit = async (picked) => {
+    if (picked === (material.unit || '')) return;
+    setUnitValue(picked);
+    await save({ unit: picked });
   };
 
   const handleKeyDown = (e) => {
@@ -112,16 +112,11 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
           </div>
           <div className="qty-field qty-field-unit">
             <label className="qty-field-label">Unit</label>
-            <input
-              type="text"
-              className="qty-input"
+            <UnitSelect
+              className="qty-input qty-unit-select"
               value={unitValue}
-              onChange={(e) => setUnitValue(e.target.value)}
-              onBlur={saveUnit}
-              onKeyDown={handleKeyDown}
-              placeholder="kg, nos…"
-              maxLength={20}
-              aria-label={`Unit of ${material.name}`}
+              onChange={saveUnit}
+              ariaLabel={`Unit of ${material.name}`}
             />
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { UnitsProvider } from './context/UnitsContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -13,7 +14,8 @@ import NotFound from './pages/NotFound';
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <UnitsProvider>
+        <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
           
@@ -40,7 +42,8 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
-      </Router>
+        </Router>
+      </UnitsProvider>
     </AuthProvider>
   );
 }
