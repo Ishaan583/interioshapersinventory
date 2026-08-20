@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
@@ -16,24 +16,52 @@ const Dashboard = () => {
   const [summaryMaterials, setSummaryMaterials] = useState([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summarySearch, setSummarySearch] = useState('');
+  const [summaryError, setSummaryError] = useState('');
+
+  // Supervisors only ever see their own site; an admin sees whichever site is
+  // picked in the header, so each branch gets its own summary.
+  const summarySite = isAdmin ? selectedSite : user?.assignedSite;
 
   const openSummaryModal = async () => {
+    if (!summarySite) return;
     setShowSummaryModal(true);
-    if (!user?.assignedSite) return;
+    setSummarySearch('');
+    setSummaryError('');
+    // Drop the previous site's rows so a slow fetch never shows the wrong branch
+    setSummaryMaterials([]);
     setSummaryLoading(true);
+
+    const requestedSite = summarySite;
     try {
-      const data = await API.getMaterials({ site: user.assignedSite });
-      const filled = data.filter(m => m.quantity > 0);
-      setSummaryMaterials(filled);
+      const data = await API.getMaterials({ site: requestedSite });
+      // Ignore a response that arrived after the admin switched sites again
+      if (requestedSite !== summarySiteRef.current) return;
+      setSummaryMaterials(data.filter(m => m.quantity > 0));
     } catch (err) {
       console.error('Failed to fetch stock summary:', err);
+      setSummaryError('Failed to load the stock summary. Please try again.');
     } finally {
       setSummaryLoading(false);
     }
   };
 
+  const closeSummaryModal = () => {
+    setShowSummaryModal(false);
+    setSummarySearch('');
+  };
+
+  const summarySiteRef = useRef(summarySite);
+  useEffect(() => {
+    summarySiteRef.current = summarySite;
+  }, [summarySite]);
+
+  // Site list is static for the session — fetch it once instead of on every
+  // site switch.
   useEffect(() => {
     fetchSites();
+  }, []);
+
+  useEffect(() => {
     fetchDashboardStats();
   }, [selectedSite]);
 
@@ -99,7 +127,7 @@ const Dashboard = () => {
         </div>
         
         {isAdmin && (
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Site:</span>
               <select 
@@ -114,6 +142,16 @@ const Dashboard = () => {
               </select>
             </div>
             
+            <button
+              className="btn btn-secondary"
+              onClick={openSummaryModal}
+              disabled={!selectedSite}
+              title={`Stock summary for ${selectedSite || 'the selected site'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              📋 Stock Summary
+            </button>
+
             <button 
               className="btn btn-primary" 
               onClick={handleExportSite}
@@ -250,11 +288,11 @@ const Dashboard = () => {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '700px', margin: 'auto', borderRadius: 'var(--radius-lg)', padding: '30px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div className="flex-between" style={{ marginBottom: '20px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: '700' }}>
-                📋 Stock Summary: {user?.assignedSite}
+                📋 Stock Summary: {summarySite}
               </h3>
               <button 
                 className="btn btn-secondary" 
-                onClick={() => { setShowSummaryModal(false); setSummarySearch(''); }}
+                onClick={closeSummaryModal}
                 style={{ padding: '4px 10px', fontSize: '16px' }}
               >
                 ✕
@@ -273,6 +311,10 @@ const Dashboard = () => {
             <div style={{ overflowY: 'auto', flexGrow: 1, minHeight: '200px' }}>
               {summaryLoading ? (
                 <div className="flex-center" style={{ minHeight: '200px' }}>Loading stock summary...</div>
+              ) : summaryError ? (
+                <div className="badge badge-error" style={{ width: '100%', padding: '15px', borderRadius: 'var(--radius-md)', textTransform: 'none', fontSize: '14px' }}>
+                  {summaryError}
+                </div>
               ) : filteredSummary.length > 0 ? (
                 <div className="custom-table-container">
                   <table className="custom-table">
@@ -292,7 +334,10 @@ const Dashboard = () => {
                             </span>
                           </td>
                           <td><strong>{m.name}</strong></td>
-                          <td style={{ textAlign: 'right', fontWeight: '700' }}>{m.quantity}</td>
+                          <td style={{ textAlign: 'right', fontWeight: '700' }}>
+                            {m.quantity}
+                            {m.unit ? <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}> {m.unit}</span> : null}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -307,7 +352,7 @@ const Dashboard = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowSummaryModal(false); setSummarySearch(''); }}>
+              <button type="button" className="btn btn-secondary" onClick={closeSummaryModal}>
                 Close
               </button>
             </div>

@@ -182,11 +182,17 @@ const CategoryPage = ({ category }) => {
   const [formName, setFormName] = useState('');
   const [formCustomName, setFormCustomName] = useState('');
   const [formSite, setFormSite] = useState('');
-  const [formQty, setFormQty] = useState(0);
+  const [formQty, setFormQty] = useState('0');
+  const [formUnit, setFormUnit] = useState('');
   const [editingMaterial, setEditingMaterial] = useState(null);
 
+  // Sites only need to be loaded once — refetching them on every category or
+  // site change was an extra round trip per navigation.
   useEffect(() => {
     fetchSites();
+  }, []);
+
+  useEffect(() => {
     fetchMaterials();
   }, [category, selectedSite]);
 
@@ -225,10 +231,13 @@ const CategoryPage = ({ category }) => {
     }
   };
 
-  const handleQtyChange = async (id, change, newValue) => {
+  const handleQtyChange = async (id, change, newValue, unit) => {
     try {
-      const updated = await API.adjustQuantity(id, change, newValue);
-      setMaterials(prev => prev.map(m => m._id === id ? { ...m, quantity: updated.material.quantity } : m));
+      const updated = await API.adjustQuantity(id, change, newValue, unit);
+      setMaterials(prev => prev.map(m => m._id === id
+        ? { ...m, quantity: updated.material.quantity, unit: updated.material.unit ?? m.unit }
+        : m
+      ));
     } catch (err) {
       alert(err.response?.data?.message || 'Error updating quantity');
     }
@@ -237,7 +246,8 @@ const CategoryPage = ({ category }) => {
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     const finalName = formName === 'other' ? formCustomName : formName;
-    if (!finalName || !formSite || formQty < 0) {
+    const qty = parseFloat(formQty);
+    if (!finalName || !formSite || isNaN(qty) || qty < 0) {
       alert('Please fill out all fields correctly.');
       return;
     }
@@ -247,7 +257,8 @@ const CategoryPage = ({ category }) => {
         name: finalName,
         category,
         site: formSite,
-        quantity: parseInt(formQty)
+        quantity: qty,
+        unit: formUnit.trim()
       });
       
       // Close modal and refresh list
@@ -262,7 +273,8 @@ const CategoryPage = ({ category }) => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!formName || !formSite || formQty < 0) {
+    const qty = parseFloat(formQty);
+    if (!formName || !formSite || isNaN(qty) || qty < 0) {
       alert('Please fill out all fields.');
       return;
     }
@@ -271,7 +283,8 @@ const CategoryPage = ({ category }) => {
       await API.editMaterial(editingMaterial._id, {
         name: formName,
         site: formSite,
-        quantity: parseInt(formQty)
+        quantity: qty,
+        unit: formUnit.trim()
       });
       setShowEditModal(false);
       resetForm();
@@ -295,7 +308,8 @@ const CategoryPage = ({ category }) => {
     setEditingMaterial(material);
     setFormName(material.name);
     setFormSite(material.site);
-    setFormQty(material.quantity);
+    setFormQty(String(material.quantity ?? 0));
+    setFormUnit(material.unit || '');
     setShowEditModal(true);
   };
 
@@ -303,7 +317,8 @@ const CategoryPage = ({ category }) => {
     setFormName('');
     setFormCustomName('');
     setFormSite('');
-    setFormQty(0);
+    setFormQty('0');
+    setFormUnit('');
     setEditingMaterial(null);
   };
 
@@ -439,16 +454,30 @@ const CategoryPage = ({ category }) => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Initial Quantity</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  min="0"
-                  value={formQty}
-                  onChange={(e) => setFormQty(e.target.value)}
-                  required
-                />
+              <div className="qty-unit-row">
+                <div className="form-group">
+                  <label className="form-label">Initial Quantity</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="form-input"
+                    placeholder="e.g. 1250 or 12.5"
+                    value={formQty}
+                    onChange={(e) => setFormQty(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Unit</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="kg, nos, sq ft…"
+                    value={formUnit}
+                    onChange={(e) => setFormUnit(e.target.value)}
+                    maxLength={20}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '30px' }}>
@@ -496,16 +525,30 @@ const CategoryPage = ({ category }) => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Quantity</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  min="0"
-                  value={formQty}
-                  onChange={(e) => setFormQty(e.target.value)}
-                  required
-                />
+              <div className="qty-unit-row">
+                <div className="form-group">
+                  <label className="form-label">Quantity</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="form-input"
+                    placeholder="e.g. 1250 or 12.5"
+                    value={formQty}
+                    onChange={(e) => setFormQty(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Unit</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="kg, nos, sq ft…"
+                    value={formUnit}
+                    onChange={(e) => setFormUnit(e.target.value)}
+                    maxLength={20}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '30px' }}>

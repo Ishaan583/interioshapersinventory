@@ -1,67 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
+// Quantities are typed by hand (they can be in the thousands), so there are no
+// +/- steppers here — just a text field that saves on blur or Enter.
 const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
   const { user } = useAuth();
   const [updating, setUpdating] = useState(false);
-  const [inputValue, setInputValue] = useState(material.quantity);
+  const [qtyValue, setQtyValue] = useState(String(material.quantity ?? 0));
+  const [unitValue, setUnitValue] = useState(material.unit || '');
 
   const isAdmin = user?.role === 'admin';
 
-  // Sync state if material quantity changes from props
+  // Sync local state whenever the material is refreshed from the server
   useEffect(() => {
-    setInputValue(material.quantity);
+    setQtyValue(String(material.quantity ?? 0));
   }, [material.quantity]);
 
-  const handleIncrement = async () => {
-    if (updating) return;
-    setUpdating(true);
-    await onQtyChange(material._id, 1);
-    setUpdating(false);
-  };
+  useEffect(() => {
+    setUnitValue(material.unit || '');
+  }, [material.unit]);
 
-  const handleDecrement = async () => {
-    if (updating || material.quantity <= 0) return;
-    if (!isAdmin) {
-      alert("Only admin can change that");
-      return;
+  // The inputs deliberately stay enabled while a save is in flight: disabling
+  // them would steal focus from the field the user just tabbed/clicked into and
+  // swallow their keystrokes.
+  const save = async ({ quantity, unit }) => {
+    setUpdating(true);
+    try {
+      await onQtyChange(material._id, undefined, quantity, unit);
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(true);
-    await onQtyChange(material._id, -1);
-    setUpdating(false);
   };
 
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-  };
+  const saveQuantity = async () => {
+    const raw = qtyValue.trim();
+    const parsed = parseFloat(raw);
 
-  const saveDirectQuantity = async (val) => {
-    const parsed = parseInt(val);
-    if (isNaN(parsed) || parsed < 0) {
-      // Revert if invalid input
-      setInputValue(material.quantity);
+    if (raw === '' || isNaN(parsed) || parsed < 0) {
+      setQtyValue(String(material.quantity ?? 0)); // revert invalid input
       return;
     }
     if (parsed === material.quantity) return;
 
     if (!isAdmin && parsed < material.quantity) {
-      alert("Only admin can change that");
-      setInputValue(material.quantity);
+      alert('Only admin can reduce stock. Use "Return leftover" instead.');
+      setQtyValue(String(material.quantity ?? 0));
       return;
     }
 
-    setUpdating(true);
-    await onQtyChange(material._id, undefined, parsed);
-    setUpdating(false);
+    await save({ quantity: parsed });
   };
 
-  const handleInputBlur = () => {
-    saveDirectQuantity(inputValue);
+  const saveUnit = async () => {
+    const trimmed = unitValue.trim();
+    if (trimmed === (material.unit || '')) return;
+    setUnitValue(trimmed);
+    await save({ unit: trimmed });
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      e.target.blur(); // Triggers blur which saves the quantity
+      e.preventDefault();
+      e.target.blur(); // blur handler performs the save
     }
   };
 
@@ -78,69 +78,66 @@ const MaterialCard = ({ material, onQtyChange, onEdit, onDelete }) => {
         )}
       </div>
 
-      <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={material.name}>
+      <h3
+        style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
+        title={material.name}
+      >
         {material.name}
       </h3>
-      
+
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
-        Stock Available: <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>{material.quantity}</span>
+        Stock Available:{' '}
+        <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>
+          {material.quantity}{material.unit ? ` ${material.unit}` : ''}
+        </span>
+        {updating && <span className="qty-saving"> saving…</span>}
       </p>
 
       <div className="material-qty-actions">
-        <div className="qty-counter">
-          <button 
-            className="qty-btn" 
-            onClick={handleDecrement} 
-            disabled={updating || material.quantity <= 0 || !isAdmin}
-            title={!isAdmin ? "Only Admin can decrease stock directly" : "Decrease Quantity"}
-            type="button"
-          >
-            −
-          </button>
-          <input
-            type="number"
-            className="qty-input"
-            value={updating ? '...' : inputValue}
-            onChange={handleInputChange}
-            onBlur={handleInputBlur}
-            onKeyDown={handleKeyDown}
-            disabled={updating}
-            style={{
-              width: '65px',
-              textAlign: 'center',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-primary)',
-              fontWeight: '700',
-              fontSize: '14px',
-              outline: 'none',
-              margin: 0,
-              padding: 0
-            }}
-          />
-          <button 
-            className="qty-btn" 
-            onClick={handleIncrement} 
-            disabled={updating}
-            title="Increase Quantity"
-            type="button"
-          >
-            +
-          </button>
+        <div className="qty-entry">
+          <div className="qty-field">
+            <label className="qty-field-label">Quantity</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="qty-input"
+              value={qtyValue}
+              onChange={(e) => setQtyValue(e.target.value)}
+              onBlur={saveQuantity}
+              onKeyDown={handleKeyDown}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              aria-label={`Quantity of ${material.name}`}
+            />
+          </div>
+          <div className="qty-field qty-field-unit">
+            <label className="qty-field-label">Unit</label>
+            <input
+              type="text"
+              className="qty-input"
+              value={unitValue}
+              onChange={(e) => setUnitValue(e.target.value)}
+              onBlur={saveUnit}
+              onKeyDown={handleKeyDown}
+              placeholder="kg, nos…"
+              maxLength={20}
+              aria-label={`Unit of ${material.name}`}
+            />
+          </div>
         </div>
 
         {isAdmin && (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className="btn btn-secondary" 
+            <button
+              className="btn btn-secondary"
               style={{ padding: '6px 12px', fontSize: '12px' }}
               onClick={() => onEdit(material)}
               title="Edit Material"
             >
               ✏️
             </button>
-            <button 
-              className="btn btn-danger" 
+            <button
+              className="btn btn-danger"
               style={{ padding: '6px 12px', fontSize: '12px' }}
               onClick={() => onDelete(material._id)}
               title="Delete Material"

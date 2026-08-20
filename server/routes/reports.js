@@ -21,7 +21,8 @@ router.get('/export', verifyToken, isAdmin, async (req, res) => {
       const row = {
         'Category': m.category,
         'Item Name': m.name,
-        'Quantity': m.quantity
+        'Quantity': m.quantity,
+        'Unit': m.unit || ''
       };
       
       // If exporting all sites, include the Site column

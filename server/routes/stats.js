@@ -11,46 +11,37 @@ router.get('/', verifyToken, async (req, res) => {
   const { site } = req.query;
 
   try {
+    const isAdmin = req.user.role === 'admin';
+
+    // Counts are done in the database and the four lookups run in parallel —
+    // the dashboard is the first page after login, so this is the request the
+    // user waits on most.
     let totalMaterials = 0;
     let totalSites = 0;
     let pendingRequests = 0;
     let recentActivity = [];
 
-    const isAdmin = req.user.role === 'admin';
-
     if (isAdmin) {
-      // Admin dashboard metrics
       const siteFilter = site ? { site } : {};
-      const materials = await DB.Materials.find(siteFilter);
-      totalMaterials = materials.length;
-
-      const sites = await DB.Sites.find();
-      totalSites = sites.length;
-
       const reqFilter = site ? { site, status: 'pending' } : { status: 'pending' };
-      const requests = await DB.Requests.find(reqFilter);
-      pendingRequests = requests.length;
 
-      const histFilter = site ? { site } : {};
-      recentActivity = await DB.History.find(histFilter);
-
+      [totalMaterials, totalSites, pendingRequests, recentActivity] = await Promise.all([
+        DB.Materials.count(siteFilter),
+        DB.Sites.count(),
+        DB.Requests.count(reqFilter),
+        DB.History.find(siteFilter)
+      ]);
     } else {
       // Worker dashboard metrics (locked to assigned site)
       const assignedSiteName = req.user.assignedSite;
-      
+
       if (assignedSiteName) {
-        const materials = await DB.Materials.find({ site: assignedSiteName });
-        totalMaterials = materials.length;
-
-        // Pending requests submitted by this specific worker
-        const requests = await DB.Requests.find({ 
-          workerId: req.user.id,
-          status: 'pending' 
-        });
-        pendingRequests = requests.length;
-
-        // Recent activity history for their assigned site
-        recentActivity = await DB.History.find({ site: assignedSiteName });
+        [totalMaterials, pendingRequests, recentActivity] = await Promise.all([
+          DB.Materials.count({ site: assignedSiteName }),
+          // Pending requests submitted by this specific worker
+          DB.Requests.count({ workerId: req.user.id, status: 'pending' }),
+          DB.History.find({ site: assignedSiteName })
+        ]);
       }
     }
 

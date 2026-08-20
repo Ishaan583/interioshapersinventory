@@ -4,7 +4,45 @@ import axios from 'axios';
 const apiURL = import.meta.env.VITE_API_URL || '';
 axios.defaults.baseURL = apiURL;
 
+// A cold Render instance can take ~30-60s to wake up, so allow a generous ceiling
+// rather than failing the request while the server is still booting.
+axios.defaults.timeout = 60000;
+
 // The Authorization header is automatically attached in AuthContext.jsx when token changes
+
+// The backend answers 503 while its database connection is still warming up.
+// Retry those transparently instead of showing the user an error.
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    // A 503 comes from the startup gate, so the handler definitely never ran —
+    // safe to retry for any method. A bare network error is ambiguous, so only
+    // retry it for reads, never for a POST/PATCH that might have gone through.
+    const isWarmingUp = error.response?.status === 503;
+    const isRetryableRead =
+      !error.response &&
+      error.code !== 'ERR_CANCELED' &&
+      (config?.method || 'get').toLowerCase() === 'get';
+
+    if (config && (isWarmingUp || isRetryableRead)) {
+      config._retryCount = config._retryCount || 0;
+      if (config._retryCount < 4) {
+        config._retryCount += 1;
+        await new Promise((resolve) => setTimeout(resolve, config._retryCount * 2000));
+        return axios(config);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Fire-and-forget ping that wakes a sleeping backend while the user types their
+// credentials, so the first real request does not pay the cold-start cost.
+export const warmUpServer = () => {
+  if (!apiURL) return Promise.resolve();
+  return axios.get('/api/health', { timeout: 60000 }).catch(() => {});
+};
 
 const API = {
   // Authentication
@@ -39,10 +77,11 @@ const API = {
     return res.data;
   },
 
-  adjustQuantity: async (id, change, newValue) => {
+  adjustQuantity: async (id, change, newValue, unit) => {
     const payload = {};
     if (change !== undefined) payload.change = change;
     if (newValue !== undefined) payload.newValue = newValue;
+    if (unit !== undefined) payload.unit = unit;
     const res = await axios.patch(`/api/materials/${id}/quantity`, payload);
     return res.data;
   },

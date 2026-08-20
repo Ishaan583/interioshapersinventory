@@ -585,51 +585,98 @@ button, input, select, textarea {
 /* Material Card quantity controls */
 .material-qty-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid var(--card-border);
 }
 
-.qty-counter {
+/* Typed quantity + unit entry (replaces the old +/- stepper) */
+.qty-entry {
   display: flex;
-  align-items: center;
-  background: #f3f4f6;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--card-border);
-  overflow: hidden;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
-.qty-btn {
-  width: 38px;
-  height: 38px;
-  background: transparent;
-  border: none;
+.qty-field {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--transition-fast);
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 0;
 }
 
-.qty-btn:hover {
-  background: #e5e7eb;
-  color: var(--text-primary);
+.qty-field-unit {
+  flex: 0 1 90px;
 }
 
-.qty-btn:active {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.qty-val {
-  padding: 0 16px;
+.qty-field-label {
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.qty-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  background: #f3f4f6;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: 700;
   font-size: 15px;
-  min-width: 45px;
-  text-align: center;
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.qty-field-unit .qty-input {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.qty-input::placeholder {
+  font-weight: 400;
+  color: var(--text-muted, #9ca3af);
+}
+
+.qty-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: #fff;
+}
+
+.qty-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Hide native number spinners anywhere a quantity is typed */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-saving {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+/* Quantity + unit pair inside the add/edit modals */
+.qty-unit-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
 }
 
 /* Login Page specific styling */
