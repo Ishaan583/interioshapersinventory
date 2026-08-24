@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CategoryPage from './pages/CategoryPage';
 import RequestItem from './pages/RequestItem';
+import DailyUpdates from './pages/DailyUpdates';
 import Sites from './pages/Sites';
 import Users from './pages/Users';
 import NotFound from './pages/NotFound';
@@ -34,6 +35,8 @@ function App() {
             {/* Request Pages */}
             <Route path="request" element={<RequestItem />} />
             
+            <Route path="daily-updates" element={<DailyUpdates />} />
+
             {/* Admin Management Pages */}
             <Route path="sites" element={<Sites />} />
             <Route path="users" element={<Users />} />

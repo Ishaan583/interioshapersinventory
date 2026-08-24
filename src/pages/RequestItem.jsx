@@ -11,8 +11,12 @@ const RequestItem = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Tab state (Worker: 'request' or 'return')
+  // Tab state (Worker: 'request', 'return' or 'consume')
   const [tab, setTab] = useState('request');
+
+  // Return and Consume both draw from what is already stocked at the site;
+  // only Request lets the worker type a brand new material name.
+  const picksFromStock = tab === 'return' || tab === 'consume';
 
   // Form states (Worker)
   const [category, setCategory] = useState('Carpentry');
@@ -54,8 +58,11 @@ const RequestItem = () => {
     try {
       const data = await API.getMaterials({ category, site: user.assignedSite });
       setSiteMaterials(data);
-      
-      // Filter materials that have quantity > 0
+
+      // Only the stock-backed tabs preselect an item. On the Request tab the
+      // name is typed by hand, so preselecting would wipe what was entered.
+      if (tab === 'request') return;
+
       const available = data.filter(m => m.quantity > 0);
       if (available.length > 0) {
         setSelectedMaterial(available[0]);
@@ -66,7 +73,7 @@ const RequestItem = () => {
         setName('');
       }
     } catch (err) {
-      console.error('Error fetching site materials for return:', err);
+      console.error('Error fetching site materials:', err);
     }
   };
 
@@ -100,14 +107,33 @@ const RequestItem = () => {
         });
         alert('Material request submitted successfully! Admin will review and add.');
       } else {
-        // Return leftover workflow
+        // Return and Consume both move stock that already exists
         if (!selectedMaterial) {
-          alert('Select a material to return.');
+          alert(`Select a material to ${tab === 'consume' ? 'log as consumed' : 'return'}.`);
           setSubmitting(false);
           return;
         }
         if (qty > selectedMaterial.quantity) {
-          alert(`You cannot return more than available stock (${selectedMaterial.quantity}${selectedMaterial.unit ? ' ' + selectedMaterial.unit : ''}).`);
+          alert(`You cannot ${tab === 'consume' ? 'consume' : 'return'} more than available stock (${selectedMaterial.quantity}${selectedMaterial.unit ? ' ' + selectedMaterial.unit : ''}).`);
+          setSubmitting(false);
+          return;
+        }
+
+        if (tab === 'consume') {
+          await API.createConsumption({
+            category,
+            name,
+            quantity: qty,
+            reason,
+            site: user.assignedSite
+          });
+          alert('Consumption logged. Stock will be reduced once an admin approves it.');
+          setName('');
+          setQuantity('1');
+          setUnit('');
+          setReason('');
+          fetchRequests();
+          fetchSiteMaterials();
           setSubmitting(false);
           return;
         }
@@ -127,7 +153,7 @@ const RequestItem = () => {
       setUnit('');
       setReason('');
       fetchRequests();
-      if (tab === 'return') {
+      if (picksFromStock) {
         fetchSiteMaterials();
       }
     } catch (err) {
@@ -136,6 +162,9 @@ const RequestItem = () => {
       setSubmitting(false);
     }
   };
+
+  // Positive stock only — a row of zeroes is noise when checking what is left.
+  const remainingItems = siteMaterials.filter(m => m.quantity > 0);
 
   const handleAction = async (id, status) => {
     if (!window.confirm(`Are you sure you want to ${status} this request?`)) return;
@@ -188,6 +217,10 @@ const RequestItem = () => {
                           {req.type === 'return' ? (
                             <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
                               Return
+                            </span>
+                          ) : req.type === 'consume' ? (
+                            <span className="badge" style={{ background: 'rgba(251, 146, 60, 0.12)', color: '#c2410c', border: '1px solid rgba(251, 146, 60, 0.25)' }}>
+                              Consumed
                             </span>
                           ) : (
                             <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
@@ -246,6 +279,10 @@ const RequestItem = () => {
                         {req.type === 'return' ? (
                           <span className="badge" style={{ margin: 0, background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
                             Return
+                          </span>
+                        ) : req.type === 'consume' ? (
+                          <span className="badge" style={{ margin: 0, background: 'rgba(251, 146, 60, 0.12)', color: '#c2410c', border: '1px solid rgba(251, 146, 60, 0.25)' }}>
+                            Consumed
                           </span>
                         ) : (
                           <span className="badge" style={{ margin: 0, background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
@@ -357,10 +394,26 @@ const RequestItem = () => {
               >
                 ↩️ Return leftover
               </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: tab === 'consume' ? '#fb923c' : 'transparent',
+                  color: tab === 'consume' ? '#000' : 'var(--text-secondary)',
+                  fontWeight: tab === 'consume' ? '600' : '500',
+                  fontSize: '13px'
+                }}
+                onClick={() => { setTab('consume'); resetForm(); }}
+              >
+                🔥 Consumed
+              </button>
             </div>
 
             <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>
-              {tab === 'request' ? 'Request New Item' : 'Return Leftover Item'}
+              {tab === 'request' ? 'Request New Item' : tab === 'return' ? 'Return Leftover Item' : 'Log Consumed Material'}
             </h3>
             
             {!user?.assignedSite ? (
@@ -399,9 +452,11 @@ const RequestItem = () => {
                     />
                   </div>
                 ) : (
-                  // Return Dropdown Selection
+                  // Return / Consume dropdown selection
                   <div className="form-group">
-                    <label className="form-label">Select Leftover Material</label>
+                    <label className="form-label">
+                      {tab === 'consume' ? 'Select Consumed Material' : 'Select Leftover Material'}
+                    </label>
                     {siteMaterials.filter(m => m.quantity > 0).length > 0 ? (
                       <select 
                         className="form-input"
@@ -417,7 +472,7 @@ const RequestItem = () => {
                       </select>
                     ) : (
                       <div style={{ color: 'var(--status-error)', fontSize: '13px', padding: '10px 0' }}>
-                        ⚠️ No items with positive stock in this category to return.
+                        ⚠️ No items with positive stock in this category to {tab === 'consume' ? 'consume' : 'return'}.
                       </div>
                     )}
                   </div>
@@ -426,8 +481,8 @@ const RequestItem = () => {
                 <div className="qty-unit-row">
                   <div className="form-group">
                     <label className="form-label">
-                      {tab === 'request' ? 'Quantity Needed' : 'Quantity to Return'}
-                      {tab === 'return' && selectedMaterial && ` (Max: ${selectedMaterial.quantity})`}
+                      {tab === 'request' ? 'Quantity Needed' : tab === 'return' ? 'Quantity to Return' : 'Quantity Consumed'}
+                      {picksFromStock && selectedMaterial && ` (Max: ${selectedMaterial.quantity})`}
                     </label>
                     <input
                       type="text"
@@ -437,25 +492,25 @@ const RequestItem = () => {
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
                       required
-                      disabled={tab === 'return' && !selectedMaterial}
+                      disabled={picksFromStock && !selectedMaterial}
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Unit</label>
-                    {/* On a return the unit is fixed by the stocked item */}
-                    <UnitSelect value={unit} onChange={setUnit} disabled={tab === 'return'} />
+                    {/* Returning or consuming uses the stocked item's own unit */}
+                    <UnitSelect value={unit} onChange={setUnit} disabled={picksFromStock} />
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">
-                    {tab === 'request' ? 'Reason / Notes' : 'Return Reason / Condition'}
+                    {tab === 'request' ? 'Reason / Notes' : tab === 'return' ? 'Return Reason / Condition' : 'What was it used for?'}
                   </label>
                   <textarea
                     className="form-input"
                     rows="3"
                     style={{ resize: 'none' }}
-                    placeholder={tab === 'request' ? "Why is this needed..." : "Leftover condition (e.g. Unopened box, extra painting putty)..."}
+                    placeholder={tab === 'request' ? "Why is this needed..." : tab === 'return' ? "Leftover condition (e.g. Unopened box, extra painting putty)..." : "Where it was used (e.g. Ground floor ceiling framing)..."}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                   />
@@ -467,17 +522,55 @@ const RequestItem = () => {
                   style={{ 
                     width: '100%', 
                     padding: '12px', 
-                    background: tab === 'return' ? '#c084fc' : undefined,
+                    background: tab === 'return' ? '#c084fc' : tab === 'consume' ? '#fb923c' : undefined,
                     color: '#000',
                     fontWeight: '700'
                   }}
-                  disabled={submitting || (tab === 'return' && !selectedMaterial)}
+                  disabled={submitting || (picksFromStock && !selectedMaterial)}
                 >
-                  {submitting ? 'Processing...' : tab === 'request' ? 'Send Request' : 'Process Return'}
+                  {submitting ? 'Processing...' : tab === 'request' ? 'Send Request' : tab === 'return' ? 'Process Return' : 'Log Consumption'}
                 </button>
               </form>
             )}
           </div>
+
+          {/* How much of this category is still left at the worker's site */}
+          {user?.assignedSite && (
+            <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
+              <div className="flex-between" style={{ marginBottom: '16px', gap: '10px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '700' }}>📦 Remaining Items</h3>
+                <span className="badge badge-pending" style={{ fontSize: '11px' }}>{category}</span>
+              </div>
+
+              {remainingItems.length > 0 ? (
+                <div className="custom-table-container">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Material Name</th>
+                        <th style={{ textAlign: 'right' }}>Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {remainingItems.map(m => (
+                        <tr key={m._id}>
+                          <td><strong>{m.name}</strong></td>
+                          <td style={{ textAlign: 'right', fontWeight: '700' }}>
+                            {m.quantity}
+                            {m.unit ? <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}> {m.unit}</span> : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  Nothing left in stock under {category} at {user.assignedSite}.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Past Requests History */}
           <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
@@ -508,6 +601,10 @@ const RequestItem = () => {
                           {req.type === 'return' ? (
                             <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)', fontSize: '10px' }}>
                               Return
+                            </span>
+                          ) : req.type === 'consume' ? (
+                            <span className="badge" style={{ background: 'rgba(251, 146, 60, 0.12)', color: '#c2410c', border: '1px solid rgba(251, 146, 60, 0.25)', fontSize: '10px' }}>
+                              Consumed
                             </span>
                           ) : (
                             <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '10px' }}>

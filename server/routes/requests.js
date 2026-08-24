@@ -89,11 +89,7 @@ router.patch('/:id', verifyToken, isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Request has already been processed.' });
     }
 
-    // Resolve request
-    await DB.Requests.findByIdAndUpdate(req.params.id, { status });
-
     if (status === 'approved') {
-      // Add or merge approved quantity into materials database
       const existing = await DB.Materials.find({
         category: request.category,
         site: request.site
@@ -101,7 +97,19 @@ router.patch('/:id', verifyToken, isAdmin, async (req, res) => {
 
       const duplicate = existing.find(m => m.name.toLowerCase() === request.name.toLowerCase());
 
-      if (duplicate) {
+      if (request.type === 'consume') {
+        // Consumption takes stock away rather than adding it
+        if (!duplicate) {
+          return res.status(404).json({ message: `"${request.name}" no longer exists at site "${request.site}".` });
+        }
+        // Stock may have moved since the worker logged this
+        if (duplicate.quantity < request.quantity) {
+          return res.status(400).json({ message: `Cannot approve: only ${duplicate.quantity} ${duplicate.unit || 'units'} of "${duplicate.name}" remain, but ${request.quantity} was logged as consumed.` });
+        }
+        const newQty = Math.round((duplicate.quantity - request.quantity) * 1000) / 1000;
+        await DB.Materials.findByIdAndUpdate(duplicate._id, { quantity: newQty });
+      } else if (duplicate) {
+        // Add or merge approved quantity into materials database
         const newQty = duplicate.quantity + request.quantity;
         await DB.Materials.findByIdAndUpdate(duplicate._id, {
           quantity: newQty,
@@ -118,10 +126,14 @@ router.patch('/:id', verifyToken, isAdmin, async (req, res) => {
       }
     }
 
-    // Log Activity
+    // Only mark resolved once the stock move above has succeeded
+    await DB.Requests.findByIdAndUpdate(req.params.id, { status });
+
+    const verb = status === 'approved' ? 'Approved' : 'Rejected';
+    const noun = request.type === 'consume' ? 'consumption of' : 'request for';
     await DB.History.create({
       userName: req.user.name,
-      action: `${status === 'approved' ? 'Approved' : 'Rejected'} request for "${request.name}" by worker ${request.workerName}`,
+      action: `${verb} ${noun} "${request.name}" (${request.quantity} ${request.unit || 'units'}) by ${request.workerName}`,
       site: request.site
     });
 
@@ -129,6 +141,66 @@ router.patch('/:id', verifyToken, isAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error updating request.' });
+  }
+});
+
+// @route   POST /api/requests/consume
+// @desc    Log material consumed on site. Recorded as pending — stock only
+//          drops once an admin approves, keeping workers unable to reduce
+//          stock on their own.
+// @access  Private (Worker Only)
+router.post('/consume', verifyToken, async (req, res) => {
+  const { name, category, quantity, reason, site } = req.body;
+
+  if (req.user.role !== 'worker') {
+    return res.status(403).json({ message: 'Only workers can log consumed material.' });
+  }
+
+  if (!name || !category || quantity === undefined || !site) {
+    return res.status(400).json({ message: 'Please provide material name, category, quantity, and site.' });
+  }
+
+  const parsedQty = parseQty(quantity);
+  if (parsedQty === null || parsedQty <= 0) {
+    return res.status(400).json({ message: 'Consumed quantity must be a number greater than 0.' });
+  }
+
+  try {
+    const materials = await DB.Materials.find({ category, site });
+    const material = materials.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
+
+    if (!material) {
+      return res.status(404).json({ message: `Material "${name}" does not exist in site "${site}".` });
+    }
+
+    // Caught again at approval time, since stock can move in between
+    if (material.quantity < parsedQty) {
+      return res.status(400).json({ message: `Only ${material.quantity} ${material.unit || 'units'} of "${material.name}" are in stock, but ${parsedQty} was entered as consumed.` });
+    }
+
+    const record = await DB.Requests.create({
+      name: material.name,
+      category,
+      quantity: parsedQty,
+      unit: material.unit || '',
+      reason: reason ? reason.trim() : '',
+      workerName: req.user.name,
+      workerId: req.user.id,
+      site,
+      type: 'consume',
+      status: 'pending'
+    });
+
+    await DB.History.create({
+      userName: req.user.name,
+      action: `Logged ${parsedQty} ${material.unit || 'units'} of "${material.name}" as consumed (awaiting approval)`,
+      site
+    });
+
+    res.status(201).json({ message: 'Consumption logged. It will reduce stock once an admin approves it.', request: record });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error logging consumption.' });
   }
 });
 
