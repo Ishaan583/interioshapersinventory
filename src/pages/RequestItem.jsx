@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 import UnitSelect from '../components/UnitSelect';
+import { groupByDay, timeOfDay } from '../utils/dates';
 
 const RequestItem = () => {
   const { user } = useAuth();
@@ -11,8 +12,10 @@ const RequestItem = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Admin filter over the incoming list: all / request / return / consume
+  // Admin filters over the incoming list: by type, and by site
   const [adminFilter, setAdminFilter] = useState('all');
+  const [adminSite, setAdminSite] = useState('');
+  const [sites, setSites] = useState([]);
 
   // Tab state (Worker: 'request', 'return' or 'consume')
   const [tab, setTab] = useState('request');
@@ -36,6 +39,13 @@ const RequestItem = () => {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    API.getSites()
+      .then(setSites)
+      .catch(err => console.error('Failed to fetch sites', err));
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin && user?.assignedSite) {
@@ -172,16 +182,25 @@ const RequestItem = () => {
   // Anything without an explicit type is a plain request (older records).
   const typeOf = (r) => r.type || 'request';
 
+  // Site narrows the pool first, so the type counts describe the site on screen.
+  const siteRequests = adminSite
+    ? requests.filter(r => r.site === adminSite)
+    : requests;
+
   const adminCounts = {
-    all: requests.length,
-    request: requests.filter(r => typeOf(r) === 'request').length,
-    return: requests.filter(r => typeOf(r) === 'return').length,
-    consume: requests.filter(r => typeOf(r) === 'consume').length
+    all: siteRequests.length,
+    request: siteRequests.filter(r => typeOf(r) === 'request').length,
+    return: siteRequests.filter(r => typeOf(r) === 'return').length,
+    consume: siteRequests.filter(r => typeOf(r) === 'consume').length
   };
 
   const visibleRequests = adminFilter === 'all'
-    ? requests
-    : requests.filter(r => typeOf(r) === adminFilter);
+    ? siteRequests
+    : siteRequests.filter(r => typeOf(r) === adminFilter);
+
+  // Same date grouping the Daily Updates page uses, so a day's consumption
+  // across every site reads as one dated block.
+  const requestDays = groupByDay(visibleRequests, r => r.date || r.createdAt);
 
   const handleAction = async (id, status) => {
     if (!window.confirm(`Are you sure you want to ${status} this request?`)) return;
@@ -203,7 +222,8 @@ const RequestItem = () => {
             Material Requests, Returns & Consumption from Sites
           </h2>
 
-          <div className="admin-filter-row">
+          <div className="admin-filter-bar">
+            <div className="admin-filter-row">
             {[
               { key: 'all', label: 'All' },
               { key: 'request', label: '📝 Requests' },
@@ -220,20 +240,43 @@ const RequestItem = () => {
                 <span className="admin-filter-count">{adminCounts[f.key]}</span>
               </button>
             ))}
+            </div>
+
+            <div className="admin-site-filter">
+              <span className="admin-site-filter-label">Site:</span>
+              <select
+                className="form-input"
+                value={adminSite}
+                onChange={(e) => setAdminSite(e.target.value)}
+                aria-label="Filter by site"
+              >
+                <option value="">All sites</option>
+                {sites.map(st => (
+                  <option key={st._id} value={st.name}>{st.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           
           {loading ? (
             <div className="flex-center" style={{ minHeight: '150px' }}>Loading requests...</div>
           ) : error ? (
             <div className="badge badge-error" style={{ padding: '10px 15px', borderRadius: 'var(--radius-md)', textTransform: 'none' }}>{error}</div>
-          ) : visibleRequests.length > 0 ? (
-            <>
+          ) : requestDays.length > 0 ? (
+            requestDays.map(day => (
+            <div key={day.key} className="daily-day">
+              <div className="daily-day-header">
+                <h3 className="daily-day-title">{day.heading}</h3>
+                <span className="daily-day-count">
+                  {day.items.length} {day.items.length === 1 ? 'entry' : 'entries'}
+                </span>
+              </div>
               {/* Desktop View - Table */}
               <div className="desktop-view custom-table-container">
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th>Date</th>
+                      <th>Time</th>
                       <th>Type</th>
                       <th>Supervisor</th>
                       <th>Site</th>
@@ -246,9 +289,9 @@ const RequestItem = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleRequests.map((req) => (
+                    {day.items.map((req) => (
                       <tr key={req._id}>
-                        <td>{new Date(req.date || req.createdAt).toLocaleDateString()}</td>
+                        <td>{timeOfDay(req.date || req.createdAt)}</td>
                         <td>
                           {req.type === 'return' ? (
                             <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
@@ -307,7 +350,7 @@ const RequestItem = () => {
 
               {/* Mobile View - Card List */}
               <div className="mobile-view" style={{ flexDirection: 'column', gap: '16px' }}>
-                {visibleRequests.map((req) => (
+                {day.items.map((req) => (
                   <div key={req._id} className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--card-border)', transform: 'none', boxShadow: 'var(--shadow-md)' }}>
                     {/* Header (Type & Site) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -384,7 +427,8 @@ const RequestItem = () => {
                   </div>
                 ))}
               </div>
-            </>
+            </div>
+            ))
           ) : (
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '30px 0' }}>
               {adminFilter === 'consume'
@@ -627,7 +671,7 @@ const RequestItem = () => {
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th>Date</th>
+                      <th>Time</th>
                       <th>Type</th>
                       <th>Material</th>
                       <th>Qty</th>

@@ -1,34 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
-
-// Group entries by their LOCAL calendar day. Doing this on the client keeps a
-// 5am IST entry on today rather than yesterday, which is what grouping by the
-// server's UTC date would do.
-const localDayKey = (value) => {
-  const d = new Date(value);
-  const month = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${d.getFullYear()}-${month}-${day}`;
-};
-
-const dayHeading = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (localDayKey(today) === key) return 'Today';
-  if (localDayKey(yesterday) === key) return 'Yesterday';
-
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-  });
-};
-
-const timeOfDay = (value) =>
-  new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+import { groupByDay, timeOfDay } from '../utils/dates';
 
 const DailyUpdates = () => {
   const { user } = useAuth();
@@ -74,21 +47,7 @@ const DailyUpdates = () => {
           (e.site || '').toLowerCase().includes(term))
       : entries;
 
-    const grouped = new Map();
-    for (const entry of matching) {
-      const key = localDayKey(entry.date);
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key).push(entry);
-    }
-
-    // Newest day first, and newest entry first within each day
-    return [...grouped.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, items]) => ({
-        key,
-        heading: dayHeading(key),
-        items: items.sort((a, b) => new Date(b.date) - new Date(a.date))
-      }));
+    return groupByDay(matching, e => e.date);
   }, [entries, search]);
 
   return (
