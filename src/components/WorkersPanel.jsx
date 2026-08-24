@@ -20,7 +20,11 @@ const WorkersPanel = ({ category, site }) => {
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [open, setOpen] = useState(true);
+  // Phones have little room above the material list, so the roster starts
+  // folded there and stays open on wider screens.
+  const [open, setOpen] = useState(() =>
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 768px)').matches
+  );
 
   const labels = TRADE_LABELS[category] || { singular: 'Worker', plural: 'Workers' };
 
@@ -90,7 +94,12 @@ const WorkersPanel = ({ category, site }) => {
           👷 {labels.plural} Working
           <span className="workers-count">{loading ? '…' : workers.length}</span>
         </span>
-        <span className="workers-panel-caret">{open ? '▾' : '▸'}</span>
+        <span className="workers-panel-right">
+          {!open && workers.length > 0 && (
+            <span className="workers-preview">{workers.map(w => w.name).join(', ')}</span>
+          )}
+          <span className="workers-panel-caret">{open ? '▾' : '▸'}</span>
+        </span>
       </button>
 
       {open && (
