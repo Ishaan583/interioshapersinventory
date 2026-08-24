@@ -11,6 +11,9 @@ const RequestItem = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Admin filter over the incoming list: all / request / return / consume
+  const [adminFilter, setAdminFilter] = useState('all');
+
   // Tab state (Worker: 'request', 'return' or 'consume')
   const [tab, setTab] = useState('request');
 
@@ -166,6 +169,20 @@ const RequestItem = () => {
   // Positive stock only — a row of zeroes is noise when checking what is left.
   const remainingItems = siteMaterials.filter(m => m.quantity > 0);
 
+  // Anything without an explicit type is a plain request (older records).
+  const typeOf = (r) => r.type || 'request';
+
+  const adminCounts = {
+    all: requests.length,
+    request: requests.filter(r => typeOf(r) === 'request').length,
+    return: requests.filter(r => typeOf(r) === 'return').length,
+    consume: requests.filter(r => typeOf(r) === 'consume').length
+  };
+
+  const visibleRequests = adminFilter === 'all'
+    ? requests
+    : requests.filter(r => typeOf(r) === adminFilter);
+
   const handleAction = async (id, status) => {
     if (!window.confirm(`Are you sure you want to ${status} this request?`)) return;
     try {
@@ -182,15 +199,34 @@ const RequestItem = () => {
       {isAdmin ? (
         // Admin View - Requests List to approve/reject
         <div className="glass-panel" style={{ borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '20px' }}>
-            Pending Material Requests & Returns from Sites
+          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '16px' }}>
+            Material Requests, Returns & Consumption from Sites
           </h2>
+
+          <div className="admin-filter-row">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'request', label: '📝 Requests' },
+              { key: 'return', label: '↩️ Returns' },
+              { key: 'consume', label: '🔥 Consumed' }
+            ].map(f => (
+              <button
+                key={f.key}
+                type="button"
+                className={`admin-filter-chip ${adminFilter === f.key ? 'active' : ''}`}
+                onClick={() => setAdminFilter(f.key)}
+              >
+                {f.label}
+                <span className="admin-filter-count">{adminCounts[f.key]}</span>
+              </button>
+            ))}
+          </div>
           
           {loading ? (
             <div className="flex-center" style={{ minHeight: '150px' }}>Loading requests...</div>
           ) : error ? (
             <div className="badge badge-error" style={{ padding: '10px 15px', borderRadius: 'var(--radius-md)', textTransform: 'none' }}>{error}</div>
-          ) : requests.length > 0 ? (
+          ) : visibleRequests.length > 0 ? (
             <>
               {/* Desktop View - Table */}
               <div className="desktop-view custom-table-container">
@@ -210,7 +246,7 @@ const RequestItem = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {requests.map((req) => (
+                    {visibleRequests.map((req) => (
                       <tr key={req._id}>
                         <td>{new Date(req.date || req.createdAt).toLocaleDateString()}</td>
                         <td>
@@ -270,8 +306,8 @@ const RequestItem = () => {
               </div>
 
               {/* Mobile View - Card List */}
-              <div className="mobile-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {requests.map((req) => (
+              <div className="mobile-view" style={{ flexDirection: 'column', gap: '16px' }}>
+                {visibleRequests.map((req) => (
                   <div key={req._id} className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--card-border)', transform: 'none', boxShadow: 'var(--shadow-md)' }}>
                     {/* Header (Type & Site) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -351,7 +387,13 @@ const RequestItem = () => {
             </>
           ) : (
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '30px 0' }}>
-              No transactions pending approval.
+              {adminFilter === 'consume'
+                ? 'No consumption logged by any site yet.'
+                : adminFilter === 'return'
+                  ? 'No returns logged by any site yet.'
+                  : adminFilter === 'request'
+                    ? 'No material requests from any site yet.'
+                    : 'No transactions from any site yet.'}
             </p>
           )}
         </div>

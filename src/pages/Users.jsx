@@ -134,7 +134,7 @@ const Users = () => {
           </div>
 
           {/* Mobile View - Card List */}
-          <div className="mobile-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="mobile-view" style={{ flexDirection: 'column', gap: '16px' }}>
             {users.map(u => {
               const initials = u.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
               return (
