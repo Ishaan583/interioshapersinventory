@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 import MaterialCard from '../components/MaterialCard';
 import UnitSelect from '../components/UnitSelect';
+import WorkersPanel from '../components/WorkersPanel';
 
 // Predefined lists to help Admins add items quickly
 const PREDEFINED_ITEMS = {
@@ -377,6 +378,9 @@ const CategoryPage = ({ category }) => {
           </button>
         )}
       </div>
+
+      {/* Who is working this trade at the selected site */}
+      <WorkersPanel category={category} site={isAdmin ? selectedSite : user?.assignedSite} />
 
       {error && (
         <div className="badge badge-error" style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-md)', marginBottom: '20px', textTransform: 'none' }}>

@@ -17,6 +17,7 @@ const Sidebar = ({ collapsed, isMobile }) => {
     { path: '/electrical', label: 'Electrical', icon: '⚡' },
     { path: '/modular', label: 'Modular', icon: '📦' },
     { path: '/request', label: isAdmin ? 'Material Requests' : 'Request Material', icon: '➕' },
+    { path: '/daily-updates', label: 'Daily Updates', icon: '🗓️' },
   ];
 
   if (isAdmin) {

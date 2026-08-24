@@ -15,6 +15,8 @@ const reportsRoutes = require('./routes/reports');
 const usersRoutes = require('./routes/users');
 const statsRoutes = require('./routes/stats');
 const unitsRoutes = require('./routes/units');
+const workersRoutes = require('./routes/workers');
+const dailyRoutes = require('./routes/daily');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -48,6 +50,8 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/units', unitsRoutes);
+app.use('/api/workers', workersRoutes);
+app.use('/api/daily', dailyRoutes);
 
 // Flatten PREDEFINED_ITEMS once into [{ category, name }]
 const PREDEFINED_LIST = Object.entries(PREDEFINED_ITEMS).flatMap(([category, names]) =>

@@ -815,3 +815,206 @@ button, input, select, textarea {
     display: block !important;
   }
 }
+
+/* ---------- Workers working on a trade ---------- */
+.workers-panel {
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.workers-panel-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: inherit;
+  text-align: left;
+}
+
+.workers-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.workers-count {
+  background: var(--bg-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.workers-panel-caret {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.workers-panel-body {
+  padding: 0 20px 18px;
+}
+
+.workers-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.workers-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.workers-list-index {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.workers-list-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.workers-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.workers-remove-btn:hover {
+  color: var(--status-error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.workers-empty {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+
+.workers-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.workers-add-row .form-input {
+  flex: 1 1 200px;
+  margin-bottom: 0;
+}
+
+.workers-error {
+  color: var(--status-error);
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+
+/* ---------- Date-wise daily updates ---------- */
+.daily-day {
+  margin-bottom: 22px;
+}
+
+.daily-day-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+
+.daily-day-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.daily-day-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.daily-day-body {
+  border-radius: var(--radius-lg);
+  padding: 6px 20px;
+}
+
+.daily-entry {
+  display: flex;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.daily-entry:last-child {
+  border-bottom: none;
+}
+
+.daily-entry-time {
+  flex: 0 0 66px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-entry-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.daily-entry-action {
+  font-size: 14px;
+  margin: 0 0 3px;
+  word-break: break-word;
+}
+
+.daily-entry-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .daily-entry {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .daily-entry-time {
+    flex: none;
+  }
+  .workers-list {
+    grid-template-columns: 1fr;
+  }
+}

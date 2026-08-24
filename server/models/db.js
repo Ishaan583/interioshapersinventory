@@ -5,7 +5,7 @@ const path = require('path');
 let isMongo = false;
 
 // Mongoose Models
-let UserModel, SiteModel, MaterialModel, RequestModel, HistoryModel, UnitModel;
+let UserModel, SiteModel, MaterialModel, RequestModel, HistoryModel, UnitModel, SiteWorkerModel;
 
 const initializeMongoModels = () => {
   const userSchema = new mongoose.Schema({
@@ -38,7 +38,7 @@ const initializeMongoModels = () => {
     quantity: { type: Number, required: true },
     unit: { type: String, default: '' },
     reason: { type: String, default: '' },
-    type: { type: String, enum: ['request', 'return'], default: 'request' },
+    type: { type: String, enum: ['request', 'return', 'consume'], default: 'request' },
     status: { type: String, enum: ['pending', 'approved', 'rejected', 'returned'], default: 'pending' },
     workerName: { type: String, required: true },
     workerId: { type: String, required: true },
@@ -72,7 +72,17 @@ const initializeMongoModels = () => {
   MaterialModel = mongoose.model('Material', materialSchema);
   RequestModel = mongoose.model('Request', requestSchema);
   HistoryModel = mongoose.model('History', historySchema);
+  // People working a trade at a site. Distinct from User: these are labourers
+  // on the ground, not login accounts.
+  const siteWorkerSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    category: { type: String, required: true },
+    site: { type: String, required: true }
+  }, { timestamps: true });
+  siteWorkerSchema.index({ site: 1, category: 1 });
+
   UnitModel = mongoose.model('Unit', unitSchema);
+  SiteWorkerModel = mongoose.model('SiteWorker', siteWorkerSchema);
 };
 
 // JSON Database Implementation
@@ -83,7 +93,7 @@ const readJsonDb = () => {
     fs.mkdirSync(path.dirname(JSON_DB_PATH), { recursive: true });
   }
   if (!fs.existsSync(JSON_DB_PATH)) {
-    const initialDb = { users: [], sites: [], materials: [], requests: [], history: [], units: [] };
+    const initialDb = { users: [], sites: [], materials: [], requests: [], history: [], units: [], siteWorkers: [] };
     fs.writeFileSync(JSON_DB_PATH, JSON.stringify(initialDb, null, 2));
     return initialDb;
   }
@@ -92,10 +102,11 @@ const readJsonDb = () => {
     const parsed = JSON.parse(data);
     // Collections added after a db.json was first written
     if (!parsed.units) parsed.units = [];
+    if (!parsed.siteWorkers) parsed.siteWorkers = [];
     return parsed;
   } catch (err) {
     console.error('Error reading JSON DB, resetting...', err);
-    return { users: [], sites: [], materials: [], requests: [], history: [], units: [] };
+    return { users: [], sites: [], materials: [], requests: [], history: [], units: [], siteWorkers: [] };
   }
 };
 
@@ -439,9 +450,50 @@ const DB = {
     }
   },
 
-  History: {
+  SiteWorkers: {
     find: async (query = {}) => {
-      if (isMongo) return await HistoryModel.find(query).sort({ date: -1 }).limit(15).lean();
+      if (isMongo) return await SiteWorkerModel.find(query).sort({ createdAt: 1 }).lean();
+      const db = readJsonDb();
+      return db.siteWorkers
+        .filter(w => {
+          for (let key in query) {
+            if (w[key] !== query[key]) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    },
+    findById: async (id) => {
+      if (isMongo) return await SiteWorkerModel.findById(id);
+      const db = readJsonDb();
+      return db.siteWorkers.find(w => w._id === id) || null;
+    },
+    create: async (workerDoc) => {
+      if (isMongo) return await SiteWorkerModel.create(workerDoc);
+      const db = readJsonDb();
+      const newDoc = { _id: generateId(), ...workerDoc, createdAt: new Date().toISOString() };
+      db.siteWorkers.push(newDoc);
+      writeJsonDb(db);
+      return newDoc;
+    },
+    findByIdAndDelete: async (id) => {
+      if (isMongo) return await SiteWorkerModel.findByIdAndDelete(id);
+      const db = readJsonDb();
+      const idx = db.siteWorkers.findIndex(w => w._id === id);
+      if (idx !== -1) {
+        const deleted = db.siteWorkers[idx];
+        db.siteWorkers.splice(idx, 1);
+        writeJsonDb(db);
+        return deleted;
+      }
+      return null;
+    }
+  },
+
+  History: {
+    // `limit` defaults to the 15 the dashboard shows; the daily log asks for more.
+    find: async (query = {}, { limit = 15 } = {}) => {
+      if (isMongo) return await HistoryModel.find(query).sort({ date: -1 }).limit(limit).lean();
       const db = readJsonDb();
       const filtered = db.history.filter(h => {
         for (let key in query) {
@@ -449,8 +501,7 @@ const DB = {
         }
         return true;
       });
-      // Sort by date desc, limit to 15
-      return filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15);
+      return filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, limit);
     },
     create: async (historyDoc) => {
       if (isMongo) return await HistoryModel.create(historyDoc);

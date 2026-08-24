@@ -166,6 +166,34 @@ const API = {
     return res.data;
   },
 
+  // Site Workers (labourers working each trade)
+  getWorkers: async (params) => {
+    const res = await axios.get('/api/workers', { params });
+    return res.data;
+  },
+
+  addWorker: async (workerData) => {
+    const res = await axios.post('/api/workers', workerData);
+    return res.data;
+  },
+
+  deleteWorker: async (id) => {
+    const res = await axios.delete(`/api/workers/${id}`);
+    return res.data;
+  },
+
+  // Consumption logging
+  createConsumption: async (data) => {
+    const res = await axios.post('/api/requests/consume', data);
+    return res.data;
+  },
+
+  // Date-wise daily activity log
+  getDailyUpdates: async (site) => {
+    const res = await axios.get('/api/daily', { params: { site } });
+    return res.data;
+  },
+
   // Dashboard Stats
   getStats: async (site) => {
     const res = await axios.get('/api/stats', { params: { site } });
