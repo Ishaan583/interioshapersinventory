@@ -332,6 +332,16 @@ button, input, select, textarea {
 .grid-cols-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 .request-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start; }
 
+/* Grid children default to min-width:auto, so a wide table stretches its panel
+   past the viewport instead of scrolling inside .custom-table-container. */
+.grid-cols-1 > *,
+.grid-cols-2 > *,
+.grid-cols-3 > *,
+.grid-cols-4 > *,
+.request-grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 1024px) {
   .grid-cols-4 { grid-template-columns: repeat(3, 1fr); }
   .grid-cols-3 { grid-template-columns: repeat(2, 1fr); }
@@ -1106,4 +1116,48 @@ button, input, select, textarea {
 
 .admin-filter-chip.active .admin-filter-count {
   background: rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Admin filter bar (type chips + site picker) ---------- */
+.admin-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-filter-bar .admin-filter-row {
+  margin-bottom: 0;
+}
+
+.admin-site-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-site-filter-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.admin-site-filter .form-input {
+  margin-bottom: 0;
+  padding: 7px 12px;
+  min-width: 150px;
+}
+
+@media (max-width: 768px) {
+  .admin-filter-bar {
+    align-items: stretch;
+  }
+  .admin-site-filter {
+    width: 100%;
+  }
+  .admin-site-filter .form-input {
+    flex: 1;
+  }
 }
